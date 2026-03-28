@@ -1,0 +1,86 @@
+diff --git a/src/execution/isolate.h b/src/execution/isolate.h
+index 054c394a..9466d1c9 100644
+--- a/src/execution/isolate.h
++++ b/src/execution/isolate.h
+@@ -549,8 +549,12 @@ using DebugObjectCache = std::vector<Handle<HeapObject>>;
+ 
+ // Do not use this variable directly, use Isolate::Current() instead.
+ // Defined outside of Isolate because Isolate uses V8_EXPORT_PRIVATE.
++#ifdef _MSC_VER
++extern thread_local Isolate* g_current_isolate_;
++#else
+ __attribute__((tls_model(V8_TLS_MODEL))) extern thread_local Isolate*
+     g_current_isolate_ V8_CONSTINIT;
++#endif
+ 
+ // HiddenFactory exists so Isolate can privately inherit from it without making
+ // Factory's members available to Isolate directly.
+diff --git a/src/heap/cppgc/marking-state.h b/src/heap/cppgc/marking-state.h
+index 73bd4514..3694933f 100644
+--- a/src/heap/cppgc/marking-state.h
++++ b/src/heap/cppgc/marking-state.h
+@@ -364,7 +364,7 @@ class MutatorMarkingState final : public BasicMarkingState {
+   ~MutatorMarkingState() override = default;
+ 
+   inline bool MarkNoPush(HeapObjectHeader& header) {
+-    return MutatorMarkingState::BasicMarkingState::MarkNoPush(header);
++    return BasicMarkingState::MarkNoPush(header);
+   }
+ 
+   inline void ReTraceMarkedWeakContainer(cppgc::Visitor&, HeapObjectHeader&);
+diff --git a/src/heap/local-heap.h b/src/heap/local-heap.h
+index b29311bc..a89e0be3 100644
+--- a/src/heap/local-heap.h
++++ b/src/heap/local-heap.h
+@@ -35,8 +35,12 @@ class Safepoint;
+ 
+ // Do not use this variable directly, use LocalHeap::Current() instead.
+ // Defined outside of LocalHeap because LocalHeap uses V8_EXPORT_PRIVATE.
++#ifdef _MSC_VER
++extern thread_local LocalHeap* g_current_local_heap_;
++#else
+ __attribute__((tls_model(V8_TLS_MODEL))) extern thread_local LocalHeap*
+     g_current_local_heap_ V8_CONSTINIT;
++#endif
+ 
+ // LocalHeap is used by the GC to track all threads with heap access in order to
+ // stop them before performing a collection. LocalHeaps can be either Parked or
+diff --git a/src/trap-handler/trap-handler.h b/src/trap-handler/trap-handler.h
+index 16215ece..25a196b3 100644
+--- a/src/trap-handler/trap-handler.h
++++ b/src/trap-handler/trap-handler.h
+@@ -75,7 +75,7 @@ namespace v8::internal::trap_handler {
+ #elif defined(USING_V8_SHARED_PRIVATE)
+ #define TH_EXPORT_PRIVATE __declspec(dllimport)
+ #else
+-#define TH_EXPORT_PRIVATE __attribute__((visibility("default")))
++#define TH_EXPORT_PRIVATE
+ #endif  // BUILDING_V8_SHARED_PRIVATE
+ 
+ #else  // V8_OS_WIN
+diff --git a/src/wasm/wasm-code-manager.h b/src/wasm/wasm-code-manager.h
+index c6a92ccd..5c29e7d6 100644
+--- a/src/wasm/wasm-code-manager.h
++++ b/src/wasm/wasm-code-manager.h
+@@ -253,11 +253,21 @@ class V8_EXPORT_PRIVATE WasmCode final {
+         protected_instructions_data());
+   }
+ 
++#ifdef _MSC_VER
++#pragma pack(push, 1)
++  struct EffectHandler {
++    int call_offset;
++    int tag_index;
++    int handler_offset;
++  };
++#pragma pack(pop)
++#else
+   struct __attribute__((packed)) EffectHandler {
+     int call_offset;
+     int tag_index;
+     int handler_offset;
+   };
++#endif
+   static_assert(sizeof(WasmCode::EffectHandler) == 3 * kIntSize);
+ 
+   base::Vector<const EffectHandler> effect_handlers() const {

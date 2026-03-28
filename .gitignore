@@ -1,0 +1,16 @@
+# V8 source (fetched separately)
+v8-src/
+
+# Build output
+build/
+out/
+cmake-build-*/
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.sln
+*.vcxproj*
+.idea/
