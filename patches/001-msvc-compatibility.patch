@@ -1,3 +1,16 @@
+diff --git a/src/compiler/turboshaft/wasm-code-coverage-reducer.h b/src/compiler/turboshaft/wasm-code-coverage-reducer.h
+index ce8bb9f8..0213948d 100644
+--- a/src/compiler/turboshaft/wasm-code-coverage-reducer.h
++++ b/src/compiler/turboshaft/wasm-code-coverage-reducer.h
+@@ -20,7 +20,7 @@ class WasmCodeCoverageReducer : public Next {
+   // Increments a coverage counter at a given address.
+   V<None> REDUCE(WasmIncCoverageCounter)(Address address) {
+     V<WordPtr> counter_address =
+-        __ WordPtrConstant(reinterpret_cast<uintptr_t>(address));
++        __ WordPtrConstant(static_cast<uintptr_t>(address));
+     V<Word32> value =
+         __ LoadOffHeap(counter_address, 0, MemoryRepresentation::Uint32());
+     V<Word32> incremented_value = __ Word32Add(value, 1);
 diff --git a/src/execution/isolate-data.h b/src/execution/isolate-data.h
 index ea28cdc3..39bffa79 100644
 --- a/src/execution/isolate-data.h
@@ -386,7 +399,7 @@ index c6a92ccd..5c29e7d6 100644
  
    base::Vector<const EffectHandler> effect_handlers() const {
 diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
-index 05aa2583..85d67539 100644
+index 05aa2583..ea699815 100644
 --- a/src/wasm/wasm-objects.cc
 +++ b/src/wasm/wasm-objects.cc
 @@ -583,9 +583,7 @@ void WasmTableObject::UpdateDispatchTable(
@@ -536,7 +549,7 @@ index 05aa2583..85d67539 100644
      WasmDispatchTable::NewOrExistingEntry new_or_existing) {
    DCHECK_NE(implicit_arg, Smi::zero());
    SBXCHECK(v8_flags.wasm_jitless || !wrapper_handle->has_code() ||
-@@ -2590,15 +2557,11 @@ void WasmDispatchTable::SetForWrapper(
+@@ -2590,32 +2557,19 @@ void WasmDispatchTable::SetForWrapper(
      int index, Tagged<WasmImportData> implicit_arg,
      std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
      wasm::CanonicalTypeIndex sig_id,
@@ -545,34 +558,36 @@ index 05aa2583..85d67539 100644
 -#endif  // V8_ENABLE_DRUMBRAKE
 +/* V8_ENABLE_DRUMBRAKE disabled */
      WasmDispatchTable::NewOrExistingEntry new_or_existing) {
-   return SetForWrapper<WasmDispatchTable>(*this, index, implicit_arg,
-                                           wrapper_handle, sig_id,
+-  return SetForWrapper<WasmDispatchTable>(*this, index, implicit_arg,
+-                                          wrapper_handle, sig_id,
 -#if V8_ENABLE_DRUMBRAKE
 -                                          function_index,
 -#endif  // V8_ENABLE_DRUMBRAKE
-+/* V8_ENABLE_DRUMBRAKE disabled */
-                                           new_or_existing);
+-                                          new_or_existing);
++  return v8::internal::SetForWrapper<WasmDispatchTable>(
++      *this, index, implicit_arg, wrapper_handle, sig_id, new_or_existing);
  }
  
-@@ -2606,15 +2569,11 @@ void WasmDispatchTableForImports::SetForWrapper(
+ void WasmDispatchTableForImports::SetForWrapper(
      int index, Tagged<WasmImportData> implicit_arg,
      std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
      wasm::CanonicalTypeIndex sig_id,
 -#if V8_ENABLE_DRUMBRAKE
 -    uint32_t function_index,
 -#endif  // V8_ENABLE_DRUMBRAKE
-+/* V8_ENABLE_DRUMBRAKE disabled */
      WasmDispatchTable::NewOrExistingEntry new_or_existing) {
-   return SetForWrapper<WasmDispatchTableForImports>(*this, index, implicit_arg,
-                                                     wrapper_handle, sig_id,
+-  return SetForWrapper<WasmDispatchTableForImports>(*this, index, implicit_arg,
+-                                                    wrapper_handle, sig_id,
 -#if V8_ENABLE_DRUMBRAKE
 -                                                    function_index,
 -#endif  // V8_ENABLE_DRUMBRAKE
-+/* V8_ENABLE_DRUMBRAKE disabled */
-                                                     new_or_existing);
+-                                                    new_or_existing);
++  return v8::internal::SetForWrapper<WasmDispatchTableForImports>(
++      *this, index, implicit_arg, wrapper_handle, sig_id, new_or_existing);
  }
  
-@@ -3022,9 +2981,7 @@ bool WasmExportedFunction::IsWasmExportedFunction(Tagged<Object> object) {
+ template <AnyWasmDispatchTable DispatchTable>
+@@ -3022,9 +2976,7 @@ bool WasmExportedFunction::IsWasmExportedFunction(Tagged<Object> object) {
    Tagged<JSFunction> js_function = Cast<JSFunction>(object);
    Tagged<Code> code = js_function->code(GetCurrentIsolateForSandbox());
    if (CodeKind::JS_TO_WASM_FUNCTION != code->kind() &&

@@ -210,6 +210,8 @@ include_directories(
   "${V8_ROOT}/third_party/fast_float/src/include"
   "${V8_ROOT}/third_party/simdutf"
   "${V8_ROOT}/third_party/zlib"
+  "${V8_ROOT}/third_party/icu/source/common"
+  "${V8_ROOT}/third_party/icu/source/i18n"
 )
 
 # =============================================================================
