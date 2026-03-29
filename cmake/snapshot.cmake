@@ -115,8 +115,21 @@ target_link_libraries(v8 INTERFACE
   v8_snapshot
   v8_initializers
   v8_libplatform
+  v8_libsampler
   v8_libbase
+  v8_zlib_google
 )
+
+# =============================================================================
+# Smoke test: hello_v8
+# =============================================================================
+if(EXISTS "${CMAKE_SOURCE_DIR}/test/hello_v8.cc")
+  add_executable(hello_v8 "${CMAKE_SOURCE_DIR}/test/hello_v8.cc")
+  target_link_libraries(hello_v8 PRIVATE v8)
+  if(MSVC)
+    target_link_options(hello_v8 PRIVATE /FORCE:MULTIPLE)
+  endif()
+endif()
 
 # =============================================================================
 # Install rules
