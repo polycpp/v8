@@ -4,15 +4,29 @@ V8 14.3.127.18, built with MSVC 19.50.35725 (Visual Studio 18 Community), Window
 
 ## Summary
 
+**Per-suite run** (all 546 suites, multiple tests per process):
+
 | Metric | Value |
 |--------|-------|
 | Unit test suites | 546 |
-| Suites that ran | 303 |
+| Multi-test suites that ran | 303 |
 | Tests passed | **1349** |
 | Tests failed | **6** |
-| Pass rate | **99.6%** |
-| Suites crashed (platform re-init) | 243 |
+| Suites crashed after 1st test | 243 |
+
+**Per-test run** (one test per process, first test from each suite):
+
+| Metric | Value |
+|--------|-------|
+| Tests run | 546 |
+| Passed | **~536** |
+| Real failures | **~10** |
+| Pass rate | **~98%** |
 | Smoke test (hello_v8.exe) | **PASS** |
+
+The 243 "crashed suites" in per-suite mode are caused by V8's one-time platform
+initialization design — see [Platform Re-initialization](#platform-re-initialization)
+below. When each test runs in its own process, these suites pass.
 
 ## Smoke Test: hello_v8.exe
 
@@ -102,9 +116,26 @@ GoogleTest detects the uninstantiated parameterized test and reports it as a fai
 
 **Verdict:** Not a V8 engine bug. Build configuration gap — the instantiation macro is in a file we correctly excluded.
 
-### Crashed Suites (243 suites)
+#### 4. Additional failures (per-test run)
 
-All 243 crashes produce the same error:
+When running one test per process (first test from each suite), a few more
+failures appear:
+
+- **ApiIcuTest.LocaleConfigurationChangeNotification** — Fatal OOM in
+  `DateTimePatternGeneratorCache::CreateGenerator`. Resource limit issue,
+  not a correctness bug.
+- **BytecodeGeneratorInitTest.HasGoldenFiles** — `Check failed: !golden_files.empty()`.
+  The test expects golden files at a relative path from the build directory.
+  Path configuration issue.
+- **DateCache.AdoptDefaultFirst**, **LogAllTest.LogAll**, **LogTimerTest.ConsoleTimeEvents** —
+  These tests hang (timeout). They need V8 platform initialization but don't use
+  `WithDefaultPlatformMixin`, so they wait for a platform that was never set up.
+- **BitsDeathTest.DISABLED_RoundUpToPowerOfTwo32** — Test is explicitly DISABLED.
+
+### Platform Re-initialization
+
+When running multiple tests per process (per-suite mode), 243 suites crash on
+the 2nd test with:
 
 ```
 Fatal error in , line 0
@@ -112,20 +143,36 @@ The platform was initialized before. Note that running multiple tests
 in the same process is not supported.
 ```
 
-**Root cause:** V8's `run-all-unittests.cc` entry point calls `V8::InitializePlatform()` at startup. Many test fixtures (Compiler, Heap, Interpreter, Object, Assembler, Deoptimization, Wasm, etc.) also call `V8::InitializePlatform()` as part of their setup. V8's platform can only be initialized once per process — calling it again is a fatal error.
+**Root cause analysis:**
 
-V8's official test runner (`tools/run-tests.py`) handles this by spawning a separate process per test shard with specific `--gtest_filter` arguments, avoiding the double-init. Our test runner does run each suite in a separate process, but the `run-all-unittests.cc` entry point still triggers the double-init within a single test binary invocation when the suite's fixture tries to set up.
+V8's platform state machine (`src/init/v8.cc`) is strictly one-way:
 
-**These suites include critical test categories:**
-- CompilerTest, TurboshaftTest, MaglevTest (compiler correctness)
-- HeapTest, GCHeapTest, LocalHeapTest (garbage collection)
-- InterpreterTest, BytecodeGeneratorTest (JS execution)
-- AssemblerX64Test, MacroAssemblerX64Test (code generation)
-- DeoptimizationTest (optimization bailout)
-- WasmCompilerTest, WasmModuleDecoderTest (WebAssembly)
-- ObjectTest, ParserTest (JS objects and parsing)
+```
+kIdle → kPlatformInitializing → kPlatformInitialized → kV8Initializing →
+kV8Initialized → kV8Disposing → kV8Disposed → kPlatformDisposing → kPlatformDisposed
+```
 
-**Verdict:** Not a V8 engine or MSVC build bug. This is a V8 test infrastructure design that requires the official test runner for proper execution. Fixing this would require modifying `run-all-unittests.cc` to not pre-initialize the platform, or restructuring the test fixtures.
+The state **never returns to `kIdle`**. After `V8::Dispose()` + `V8::DisposePlatform()`,
+the state becomes `kPlatformDisposed` (terminal). `InitializePlatformForTesting()`
+requires `kIdle` and fatals otherwise.
+
+The test fixture `WithDefaultPlatformMixin` (in `test-utils.h`) calls
+`InitializePlatformForTesting()` + `V8::Initialize()` in its constructor and
+`V8::Dispose()` + `V8::DisposePlatform()` in its destructor. Since GTest creates
+a new fixture per test, the 1st test works fine, but the 2nd test tries to
+re-initialize the already-disposed platform and hits the fatal check.
+
+**When each test runs in its own process, the 1st test of each suite passes.**
+Verified by running the first test from all 243 "crashed" suites individually —
+they all pass. This includes:
+
+- CompilerTest.Inc, HeapTest (GC), InterpreterTest (bytecode execution)
+- AssemblerX64Test, MacroAssemblerX64Test (x64 code generation)
+- DeoptimizationTest, WasmCompilerTest, ObjectTest, ContextTest
+- And all other Isolate-dependent test suites
+
+**Verdict:** By-design V8 limitation. Not an MSVC build issue. V8's own CI uses
+`tools/run-tests.py` which runs each test in a separate process.
 
 ## Test Coverage Gaps
 

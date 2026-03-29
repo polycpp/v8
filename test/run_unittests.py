@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """
-Run V8 unit tests, each test suite in a separate process.
-V8 requires platform to be initialized only once per process,
-so we run each test suite (or individual test) separately.
+Run V8 unit tests, each test in a separate process.
+
+V8's platform can only be initialized once per process and cannot be
+re-initialized after disposal. Since test fixtures (WithDefaultPlatformMixin)
+init+dispose V8 per test, only one test per process is possible.
 
 Usage:
-    python run_unittests.py [path/to/v8_unittests.exe] [--filter PATTERN]
+    python run_unittests.py <path/to/v8_unittests.exe> [options]
+
+Options:
+    --filter PATTERN    Only run tests matching regex pattern
+    --suite PATTERN     Only run suites matching regex pattern
+    --timeout SECS      Per-test timeout (default: 60)
+    --list              List all tests without running
+    --summary           Only print summary, not individual results
 """
 
 import subprocess
@@ -13,126 +22,126 @@ import sys
 import os
 import re
 import time
+import argparse
 
-def get_test_suites(exe_path):
-    """Get list of test suites from --gtest_list_tests."""
+
+def get_tests(exe_path):
+    """Parse --gtest_list_tests into list of 'Suite.Test' strings."""
     result = subprocess.run(
         [exe_path, "--gtest_list_tests"],
         capture_output=True, text=True, timeout=30
     )
-    suites = []
+    tests = []
+    current_suite = None
     for line in result.stdout.splitlines():
-        if line and not line.startswith(" ") and line.endswith("."):
-            suites.append(line.rstrip("."))
-    return suites
+        if not line.startswith(" ") and line.strip().endswith("."):
+            current_suite = line.strip()
+        elif line.startswith("  ") and current_suite:
+            test_name = line.strip().split("#")[0].strip()
+            tests.append(f"{current_suite}{test_name}")
+    return tests
 
 
-def run_suite(exe_path, suite_name, timeout=120):
-    """Run a single test suite. Returns (passed, failed, errors)."""
+def run_test(exe_path, test_name, timeout=60):
+    """Run a single test. Returns (passed, failed, error_msg)."""
     try:
         result = subprocess.run(
-            [exe_path, f"--gtest_filter={suite_name}.*"],
+            [exe_path, f"--gtest_filter={test_name}"],
             capture_output=True, text=True, timeout=timeout
         )
         output = result.stdout + result.stderr
-
-        # Parse results
-        passed = 0
-        failed = 0
-        match = re.search(r"\[  PASSED  \] (\d+) test", output)
-        if match:
-            passed = int(match.group(1))
-        match = re.search(r"\[  FAILED  \] (\d+) test", output)
-        if match:
-            failed = int(match.group(1))
-
-        if result.returncode != 0 and passed == 0 and failed == 0:
-            return (0, 0, "CRASH")
-
-        return (passed, failed, None)
-
+        if "[  PASSED  ] 1 test" in output:
+            return (True, None)
+        elif "[  FAILED  ] 1 test" in output:
+            # Extract failure reason
+            lines = output.splitlines()
+            reason = ""
+            for i, line in enumerate(lines):
+                if "error:" in line.lower() or "Expected" in line:
+                    reason = line.strip()
+                    break
+            return (False, reason or "FAILED")
+        elif result.returncode != 0:
+            for line in output.splitlines():
+                if "Fatal error" in line or "Check failed" in line:
+                    return (False, line.strip())
+            return (False, f"exit code {result.returncode}")
+        else:
+            return (True, None)
     except subprocess.TimeoutExpired:
-        return (0, 0, "TIMEOUT")
+        return (False, "TIMEOUT")
     except Exception as e:
-        return (0, 0, str(e))
+        return (False, str(e))
 
 
 def main():
-    exe_path = sys.argv[1] if len(sys.argv) > 1 else "build3/v8_unittests.exe"
-    filter_pattern = None
-    if "--filter" in sys.argv:
-        idx = sys.argv.index("--filter")
-        filter_pattern = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else None
+    parser = argparse.ArgumentParser(description="V8 unittest runner")
+    parser.add_argument("exe", help="Path to v8_unittests.exe")
+    parser.add_argument("--filter", help="Regex filter on full test name")
+    parser.add_argument("--suite", help="Regex filter on suite name only")
+    parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument("--list", action="store_true")
+    parser.add_argument("--summary", action="store_true")
+    args = parser.parse_args()
 
-    if not os.path.exists(exe_path):
-        print(f"Error: {exe_path} not found")
+    if not os.path.exists(args.exe):
+        print(f"Error: {args.exe} not found")
         sys.exit(1)
 
-    print(f"Getting test suites from {exe_path}...")
-    suites = get_test_suites(exe_path)
-    print(f"Found {len(suites)} test suites")
+    print(f"Listing tests from {args.exe}...")
+    tests = get_tests(args.exe)
+    print(f"Found {len(tests)} tests")
 
-    if filter_pattern:
-        suites = [s for s in suites if re.search(filter_pattern, s, re.IGNORECASE)]
-        print(f"Filtered to {len(suites)} suites matching '{filter_pattern}'")
+    if args.suite:
+        tests = [t for t in tests if re.search(args.suite, t.split(".")[0], re.IGNORECASE)]
+    if args.filter:
+        tests = [t for t in tests if re.search(args.filter, t, re.IGNORECASE)]
 
-    total_passed = 0
-    total_failed = 0
-    crashed = []
-    timed_out = []
-    failed_suites = []
-    start_time = time.time()
+    print(f"Running {len(tests)} tests")
 
-    for i, suite in enumerate(suites):
-        passed, failed, error = run_suite(exe_path, suite)
-        total_passed += passed
-        total_failed += failed
+    if args.list:
+        for t in tests:
+            print(f"  {t}")
+        return
 
-        status = ""
-        if error == "CRASH":
-            crashed.append(suite)
-            status = "CRASH"
-        elif error == "TIMEOUT":
-            timed_out.append(suite)
-            status = "TIMEOUT"
-        elif error:
-            crashed.append(suite)
-            status = f"ERROR: {error}"
-        elif failed > 0:
-            failed_suites.append((suite, failed))
-            status = f"FAIL({failed})"
+    passed = 0
+    failed = 0
+    failures = []
+    start = time.time()
+
+    for i, test in enumerate(tests):
+        ok, err = run_test(args.exe, test, args.timeout)
+        if ok:
+            passed += 1
+            if not args.summary:
+                print(f"  [{i+1}/{len(tests)}] PASS: {test}")
         else:
-            status = f"OK({passed})"
+            failed += 1
+            failures.append((test, err))
+            print(f"  [{i+1}/{len(tests)}] FAIL: {test} — {err}")
 
-        print(f"  [{i+1}/{len(suites)}] {suite}: {status}")
+        if (i + 1) % 100 == 0:
+            elapsed = time.time() - start
+            print(f"  ... {i+1}/{len(tests)} done ({elapsed:.0f}s, "
+                  f"{passed} passed, {failed} failed)")
 
-    elapsed = time.time() - start_time
+    elapsed = time.time() - start
+
     print(f"\n{'='*60}")
-    print(f"Results ({elapsed:.1f}s):")
-    print(f"  Suites run:  {len(suites)}")
-    print(f"  Tests passed: {total_passed}")
-    print(f"  Tests failed: {total_failed}")
-    print(f"  Suites crashed: {len(crashed)}")
-    print(f"  Suites timed out: {len(timed_out)}")
+    print(f"V8 Unit Test Results ({elapsed:.1f}s)")
+    print(f"  Total:  {len(tests)}")
+    print(f"  Passed: {passed}")
+    print(f"  Failed: {failed}")
+    print(f"  Rate:   {passed*100/max(len(tests),1):.1f}%")
 
-    if failed_suites:
-        print(f"\nFailed suites:")
-        for suite, count in failed_suites:
-            print(f"  {suite}: {count} failures")
+    if failures:
+        print(f"\nFailures ({len(failures)}):")
+        for test, err in failures:
+            print(f"  {test}")
+            print(f"    {err}")
 
-    if crashed:
-        print(f"\nCrashed suites ({len(crashed)}):")
-        for s in crashed[:20]:
-            print(f"  {s}")
-        if len(crashed) > 20:
-            print(f"  ... and {len(crashed) - 20} more")
-
-    if timed_out:
-        print(f"\nTimed out suites:")
-        for s in timed_out:
-            print(f"  {s}")
-
-    sys.exit(1 if total_failed > 0 or crashed else 0)
+    print(f"{'='*60}")
+    sys.exit(0 if failed == 0 else 1)
 
 
 if __name__ == "__main__":
