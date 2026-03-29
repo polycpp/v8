@@ -377,6 +377,26 @@ add_custom_command(
 add_custom_target(generate_bytecodes_builtins_list DEPENDS "${BYTECODES_BUILTINS_LIST_H}")
 
 # =============================================================================
+# Build gen-regexp-special-case generator
+# =============================================================================
+add_executable(gen_regexp_special_case
+  "${V8_ROOT}/src/regexp/gen-regexp-special-case.cc"
+)
+target_link_libraries(gen_regexp_special_case PRIVATE v8_libbase v8_abseil icu_interface)
+
+# Run it to generate special-case.cc
+set(SPECIAL_CASE_CC "${V8_GENERATED_DIR}/src/regexp/special-case.cc")
+file(MAKE_DIRECTORY "${V8_GENERATED_DIR}/src/regexp")
+
+add_custom_command(
+  OUTPUT "${SPECIAL_CASE_CC}"
+  COMMAND $<TARGET_FILE:gen_regexp_special_case> "${SPECIAL_CASE_CC}"
+  DEPENDS gen_regexp_special_case
+  COMMENT "Generating regexp special-case.cc"
+)
+add_custom_target(generate_regexp_special_case DEPENDS "${SPECIAL_CASE_CC}")
+
+# =============================================================================
 # Run torque compiler
 # =============================================================================
 # Build the torque invocation command

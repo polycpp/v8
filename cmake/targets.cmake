@@ -18,6 +18,12 @@ add_library(v8_libplatform STATIC ${V8_LIBPLATFORM_SOURCES})
 target_link_libraries(v8_libplatform PUBLIC v8_libbase)
 
 # =============================================================================
+# v8_libsampler - Sampling profiler
+# =============================================================================
+add_library(v8_libsampler STATIC ${V8_LIBSAMPLER_SOURCES})
+target_link_libraries(v8_libsampler PUBLIC v8_libbase)
+
+# =============================================================================
 # Third-party libraries
 # =============================================================================
 add_library(v8_highway STATIC ${V8_HIGHWAY_SOURCES})
@@ -101,6 +107,11 @@ if(V8_ENABLE_ETW)
   list(APPEND _v8_base_all ${V8_ETW_SOURCES})
 endif()
 
+# Add generated regexp special-case
+list(APPEND _v8_base_all "${V8_GENERATED_DIR}/src/regexp/special-case.cc")
+set_source_files_properties("${V8_GENERATED_DIR}/src/regexp/special-case.cc"
+  PROPERTIES GENERATED TRUE)
+
 # Add torque-generated definition sources
 list(APPEND _v8_base_all ${TORQUE_GENERATED_DEFINITIONS_SOURCES})
 
@@ -116,11 +127,13 @@ target_link_libraries(v8_base_without_compiler PUBLIC
   v8_dragonbox
   v8_fast_float
   v8_abseil
+  v8_zlib_google
+  v8_libsampler
 )
 if(V8_ENABLE_I18N)
   target_link_libraries(v8_base_without_compiler PUBLIC icu_interface)
 endif()
-add_dependencies(v8_base_without_compiler run_torque generate_bytecodes_builtins_list)
+add_dependencies(v8_base_without_compiler run_torque generate_bytecodes_builtins_list generate_regexp_special_case)
 
 # MSVC: prevent .cc/.cpp file name collisions in object dir
 if(MSVC)

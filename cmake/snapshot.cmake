@@ -35,12 +35,18 @@ else()
     v8_initializers
     v8_libbase
     v8_libplatform
+    v8_libsampler
     v8_abseil
+    v8_zlib_google
   )
   if(V8_ENABLE_I18N)
     target_link_libraries(mksnapshot PRIVATE icu_interface)
   endif()
-  add_dependencies(mksnapshot run_torque generate_bytecodes_builtins_list)
+  # MSVC: mksnapshot sources share some torque-generated constants with v8_base
+  if(MSVC)
+    target_link_options(mksnapshot PRIVATE /FORCE:MULTIPLE)
+  endif()
+  add_dependencies(mksnapshot run_torque generate_bytecodes_builtins_list generate_regexp_special_case)
 
   # ==========================================================================
   # Run mksnapshot to generate snapshot.cc and embedded.S

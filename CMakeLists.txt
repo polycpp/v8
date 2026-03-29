@@ -223,5 +223,6 @@ include(cmake/sources.cmake)    # Source file lists
 include(cmake/torque.cmake)     # Torque code generation
 include(cmake/icu.cmake)        # ICU build
 include(cmake/abseil.cmake)     # Abseil build
+include(cmake/zlib.cmake)       # zlib build
 include(cmake/targets.cmake)    # Library targets
 include(cmake/snapshot.cmake)   # Snapshot generation

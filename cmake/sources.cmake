@@ -845,6 +845,7 @@ v8_src(V8_BASE_SOURCES
   src/snapshot/snapshot-source-sink.cc
   src/snapshot/snapshot-utils.cc
   src/snapshot/snapshot.cc
+  src/snapshot/snapshot-compression.cc
   src/snapshot/sort-builtins.cc
   src/snapshot/startup-deserializer.cc
   src/snapshot/startup-serializer.cc
