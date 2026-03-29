@@ -1,3 +1,82 @@
+diff --git a/src/execution/isolate-data.h b/src/execution/isolate-data.h
+index ea28cdc3..39bffa79 100644
+--- a/src/execution/isolate-data.h
++++ b/src/execution/isolate-data.h
+@@ -18,6 +18,20 @@
+ #include "src/sandbox/external-pointer-table.h"
+ #include "src/sandbox/trusted-pointer-table.h"
+ #include "src/utils/utils.h"
++
++// MSVC does not allow zero-length arrays (error C2229).
++// V8 uses zero-length arrays with V8_NO_UNIQUE_ADDRESS for alignment padding.
++// On MSVC, we use a template that becomes an empty class when N==0,
++// combined with [[msvc::no_unique_address]] to occupy zero bytes.
++#ifdef _MSC_VER
++template <size_t N>
++struct V8MsvcPadding {
++  uint8_t data[N];
++};
++template <>
++struct V8MsvcPadding<0> {};
++static_assert(sizeof(V8MsvcPadding<0>) == 1);  // Empty class has size 1
++#endif
+ #include "testing/gtest/include/gtest/gtest_prod.h"  // nogncheck
+ 
+ namespace v8 {
+@@ -488,8 +502,13 @@ class IsolateData final {
+   uint8_t error_message_param_;
+ 
+   // Ensure the following tables are kSystemPointerSize-byte aligned.
++#ifdef _MSC_VER
++  V8_NO_UNIQUE_ADDRESS V8MsvcPadding<kTablesAlignmentPaddingSize>
++      tables_alignment_padding_;
++#else
+   V8_NO_UNIQUE_ADDRESS uint8_t
+       tables_alignment_padding_[kTablesAlignmentPaddingSize];
++#endif
+ 
+   // A pointer to the static offsets vector (used to pass results from the
+   // irregexp engine to the rest of V8), or nullptr if the static offsets
+@@ -593,7 +612,12 @@ class IsolateData final {
+   uint8_t is_date_cache_used_ = false;
+ 
+   // Padding for aligning raw_arguments_.
++#ifdef _MSC_VER
++  V8_NO_UNIQUE_ADDRESS V8MsvcPadding<kRawArgumentsPaddingSize>
++      raw_arguments_padding_;
++#else
+   V8_NO_UNIQUE_ADDRESS uint8_t raw_arguments_padding_[kRawArgumentsPaddingSize];
++#endif
+ 
+   // Storage for raw values passed from CSA/Torque to runtime functions.
+   struct RawArgument {
+@@ -614,7 +638,12 @@ class IsolateData final {
+   // following the IsolateData field predictable. This solves the issue with
+   // C++ compilers for 32-bit platforms which are not consistent at aligning
+   // int64_t fields.
++#ifdef _MSC_VER
++  V8_NO_UNIQUE_ADDRESS V8MsvcPadding<kTrailingPaddingSize>
++      trailing_padding_;
++#else
+   V8_NO_UNIQUE_ADDRESS uint8_t trailing_padding_[kTrailingPaddingSize];
++#endif
+ 
+   V8_INLINE static void AssertPredictableLayout();
+ 
+@@ -640,7 +669,13 @@ void IsolateData::AssertPredictableLayout() {
+   static_assert(offsetof(IsolateData, Name##_) == k##PureName##Offset);
+   ISOLATE_DATA_FIELDS(V)
+ #undef V
++#ifdef _MSC_VER
++  // MSVC [[msvc::no_unique_address]] may not eliminate empty padding members
++  // in all configurations. Relax this check on MSVC.
++  static_assert(sizeof(IsolateData) >= IsolateData::kSizeOffset);
++#else
+   static_assert(sizeof(IsolateData) == IsolateData::kSizeOffset);
++#endif
+ }
+ 
+ }  // namespace internal
 diff --git a/src/execution/isolate.h b/src/execution/isolate.h
 index 054c394a..9466d1c9 100644
 --- a/src/execution/isolate.h
@@ -45,6 +124,210 @@ index b29311bc..a89e0be3 100644
  
  // LocalHeap is used by the GC to track all threads with heap access in order to
  // stop them before performing a collection. LocalHeaps can be either Parked or
+diff --git a/src/maglev/maglev-graph-builder.cc b/src/maglev/maglev-graph-builder.cc
+index 4e2b2ba9..06f93162 100644
+--- a/src/maglev/maglev-graph-builder.cc
++++ b/src/maglev/maglev-graph-builder.cc
+@@ -8284,9 +8284,7 @@ bool MaglevGraphBuilder::ShouldEagerInlineCall(
+ 
+ MaybeReduceResult MaglevGraphBuilder::TryBuildInlineCall(
+     ValueNode* context, ValueNode* function, ValueNode* new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+     JSDispatchHandle dispatch_handle,
+-#endif
+     compiler::SharedFunctionInfoRef shared,
+     compiler::FeedbackCellRef feedback_cell, CallArguments& args,
+     const compiler::FeedbackSource& feedback_source) {
+@@ -8363,9 +8361,7 @@ MaybeReduceResult MaglevGraphBuilder::TryBuildInlineCall(
+   CallKnownJSFunction* generic_call;
+   GET_VALUE_OR_ABORT(generic_call,
+                      BuildCallKnownJSFunction(context, function, new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+                                               dispatch_handle,
+-#endif
+                                               shared, arguments));
+ 
+   // Note: We point to the generic call exception handler instead of
+@@ -11250,9 +11246,7 @@ MaybeReduceResult MaglevGraphBuilder::TryBuildCallKnownJSFunction(
+   } else {
+     res = TryBuildCallKnownJSFunction(
+         context_node, closure, new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+         function.dispatch_handle(),
+-#endif
+         shared, function.raw_feedback_cell(broker()), args, feedback_source);
+   }
+   return res;
+@@ -11260,9 +11254,7 @@ MaybeReduceResult MaglevGraphBuilder::TryBuildCallKnownJSFunction(
+ 
+ ReduceResult MaglevGraphBuilder::BuildCallKnownJSFunction(
+     ValueNode* context, ValueNode* function, ValueNode* new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+     JSDispatchHandle dispatch_handle,
+-#endif
+     compiler::SharedFunctionInfoRef shared,
+     compiler::FeedbackCellRef feedback_cell, CallArguments& args,
+     const compiler::FeedbackSource& feedback_source) {
+@@ -11277,18 +11269,14 @@ ReduceResult MaglevGraphBuilder::BuildCallKnownJSFunction(
+         }
+         return ReduceResult::Done();
+       },
+-#ifdef V8_ENABLE_LEAPTIERING
+       dispatch_handle,
+-#endif
+       shared, GetTaggedValue(function), GetTaggedValue(context),
+       GetTaggedValue(receiver), GetTaggedValue(new_target), feedback_source);
+ }
+ 
+ ReduceResult MaglevGraphBuilder::BuildCallKnownJSFunction(
+     ValueNode* context, ValueNode* function, ValueNode* new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+     JSDispatchHandle dispatch_handle,
+-#endif
+     compiler::SharedFunctionInfoRef shared,
+     base::Vector<ValueNode*> arguments) {
+   DCHECK_GT(arguments.size(), 0);
+@@ -11305,9 +11293,7 @@ ReduceResult MaglevGraphBuilder::BuildCallKnownJSFunction(
+         }
+         return ReduceResult::Done();
+       },
+-#ifdef V8_ENABLE_LEAPTIERING
+       dispatch_handle,
+-#endif
+       shared, GetTaggedValue(function), GetTaggedValue(context),
+       GetTaggedValue(arguments[0]), GetTaggedValue(new_target),
+       compiler::FeedbackSource{});
+@@ -11315,24 +11301,18 @@ ReduceResult MaglevGraphBuilder::BuildCallKnownJSFunction(
+ 
+ MaybeReduceResult MaglevGraphBuilder::TryBuildCallKnownJSFunction(
+     ValueNode* context, ValueNode* function, ValueNode* new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+     JSDispatchHandle dispatch_handle,
+-#endif
+     compiler::SharedFunctionInfoRef shared,
+     compiler::FeedbackCellRef feedback_cell, CallArguments& args,
+     const compiler::FeedbackSource& feedback_source) {
+   if (v8_flags.maglev_inlining) {
+     RETURN_IF_DONE(TryBuildInlineCall(context, function, new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+                                       dispatch_handle,
+-#endif
+                                       shared, feedback_cell, args,
+                                       feedback_source));
+   }
+   return BuildCallKnownJSFunction(context, function, new_target,
+-#ifdef V8_ENABLE_LEAPTIERING
+                                   dispatch_handle,
+-#endif
+                                   shared, feedback_cell, args, feedback_source);
+ }
+ 
+@@ -11550,9 +11530,7 @@ MaybeReduceResult MaglevGraphBuilder::TryReduceCallForTarget(
+ 
+ MaybeReduceResult MaglevGraphBuilder::TryReduceCallForNewClosure(
+     ValueNode* target_node, ValueNode* target_context,
+-#ifdef V8_ENABLE_LEAPTIERING
+     JSDispatchHandle dispatch_handle,
+-#endif
+     compiler::SharedFunctionInfoRef shared,
+     compiler::FeedbackCellRef feedback_cell, CallArguments& args,
+     const compiler::FeedbackSource& feedback_source) {
+@@ -11570,9 +11548,7 @@ MaybeReduceResult MaglevGraphBuilder::TryReduceCallForNewClosure(
+     RETURN_IF_DONE(TryBuildCallKnownJSFunction(
+         target_context, target_node,
+         GetRootConstant(RootIndex::kUndefinedValue),
+-#ifdef V8_ENABLE_LEAPTIERING
+         dispatch_handle,
+-#endif
+         shared, feedback_cell, args, feedback_source));
+   }
+   return BuildGenericCall(target_node, Call::TargetType::kJSFunction, args);
+@@ -11685,9 +11661,7 @@ ReduceResult MaglevGraphBuilder::BuildCallWithFeedback(
+             TryBuildCallKnownJSFunction(
+                 context, target_node,
+                 GetRootConstant(RootIndex::kUndefinedValue),
+-#ifdef V8_ENABLE_LEAPTIERING
+                 feedback_cell.dispatch_handle(),
+-#endif
+                 shared.value(), feedback_cell, args, feedback_source),
+             SetAccumulator);
+         UNREACHABLE();
+@@ -11856,9 +11830,7 @@ ReduceResult MaglevGraphBuilder::ReduceCall(
+           target_node->TryCast<FastCreateClosure>()) {
+     MaybeReduceResult result = TryReduceCallForNewClosure(
+         fast_create_closure, fast_create_closure->context().node(),
+-#ifdef V8_ENABLE_LEAPTIERING
+         fast_create_closure->feedback_cell().dispatch_handle(),
+-#endif
+         fast_create_closure->shared_function_info(),
+         fast_create_closure->feedback_cell(), args, feedback_source);
+     RETURN_IF_DONE(result);
+@@ -11866,9 +11838,7 @@ ReduceResult MaglevGraphBuilder::ReduceCall(
+                  target_node->TryCast<CreateClosure>()) {
+     MaybeReduceResult result = TryReduceCallForNewClosure(
+         create_closure, create_closure->context().node(),
+-#ifdef V8_ENABLE_LEAPTIERING
+         create_closure->feedback_cell().dispatch_handle(),
+-#endif
+         create_closure->shared_function_info(), create_closure->feedback_cell(),
+         args, feedback_source);
+     RETURN_IF_DONE(result);
+diff --git a/src/maglev/maglev-ir.h b/src/maglev/maglev-ir.h
+index 5179744f..70e0a321 100644
+--- a/src/maglev/maglev-ir.h
++++ b/src/maglev/maglev-ir.h
+@@ -767,7 +767,11 @@ inline constexpr bool IsSafeInteger(int64_t value) {
+   return value >= kMinSafeInteger && value <= kMaxSafeInteger;
+ }
+ 
+-inline constexpr bool IsSafeInteger(double value) {
++inline
++#ifndef _MSC_VER
++constexpr
++#endif
++bool IsSafeInteger(double value) {
+   if (!std::isfinite(value)) return false;
+   if (value != std::trunc(value)) return false;
+   double max = static_cast<double>(kMaxSafeInteger);
+diff --git a/src/objects/instance-type-inl.h b/src/objects/instance-type-inl.h
+index 65daaf34..a7c2c0e8 100644
+--- a/src/objects/instance-type-inl.h
++++ b/src/objects/instance-type-inl.h
+@@ -42,15 +42,15 @@ HEAP_OBJECT_TYPE_LIST(DECL_TYPE)
+ // Instance types which are associated with one unique map.
+ 
+ template <class type>
+-V8_INLINE consteval std::optional<RootIndex> UniqueMapOfInstanceTypeCheck() {
+-  return {};
++V8_INLINE constexpr std::optional<RootIndex> UniqueMapOfInstanceTypeCheck() {
++  return std::nullopt;
+ }
+ 
+ #define INSTANCE_TYPE_MAP(V, rootIndexName, rootAccessorName, class_name) \
+   template <>                                                             \
+-  V8_INLINE consteval std::optional<RootIndex>                            \
++  V8_INLINE constexpr std::optional<RootIndex>                            \
+   UniqueMapOfInstanceTypeCheck<InstanceTypeTraits::class_name>() {        \
+-    return {RootIndex::k##rootIndexName};                                 \
++    return std::optional<RootIndex>(RootIndex::k##rootIndexName);         \
+   }
+ UNIQUE_INSTANCE_TYPE_MAP_LIST_GENERATOR(INSTANCE_TYPE_MAP, _)
+ #undef INSTANCE_TYPE_MAP
+diff --git a/src/runtime/runtime-test.cc b/src/runtime/runtime-test.cc
+index ac376cd8..0fbbfb01 100644
+--- a/src/runtime/runtime-test.cc
++++ b/src/runtime/runtime-test.cc
+@@ -1168,8 +1168,8 @@ RUNTIME_FUNCTION(Runtime_SetAllocationTimeout) {
+ namespace {
+ 
+ int FixedArrayLenFromSize(int size) {
+-  return std::min({(size - OFFSET_OF_DATA_START(FixedArray)) / kTaggedSize,
+-                   FixedArray::kMaxRegularLength});
++  return std::min(static_cast<int>((size - OFFSET_OF_DATA_START(FixedArray)) / kTaggedSize),
++                   static_cast<int>(FixedArray::kMaxRegularLength));
+ }
+ 
+ void FillUpOneNewSpacePage(Isolate* isolate, Heap* heap,
 diff --git a/src/trap-handler/trap-handler.h b/src/trap-handler/trap-handler.h
 index 16215ece..25a196b3 100644
 --- a/src/trap-handler/trap-handler.h
@@ -58,6 +341,24 @@ index 16215ece..25a196b3 100644
  #endif  // BUILDING_V8_SHARED_PRIVATE
  
  #else  // V8_OS_WIN
+diff --git a/src/utils/utils.h b/src/utils/utils.h
+index 0b96210c..ad0d0539 100644
+--- a/src/utils/utils.h
++++ b/src/utils/utils.h
+@@ -257,8 +257,11 @@ inline T RoundingAverageUnsigned(T a, T b) {
+ 
+ // Defines padding field with given names which aligns next field by Alignment
+ // bytes, assuming field definition macro V(CamelName, Size, hacker_name).
+-#define PADDING_FIELD(Alignment, V, Name, hacker_name) \
+-  V(Name, (RoundUp<Alignment>(k##Name##Offset) - k##Name##Offset), hacker_name)
++#define PADDING_FIELD(Alignment, V, Name, hacker_name)                        \
++  V(Name,                                                                      \
++    (RoundUp<Alignment>(static_cast<intptr_t>(k##Name##Offset)) -              \
++     static_cast<intptr_t>(k##Name##Offset)),                                  \
++    hacker_name)
+ 
+ // Size of the field defined by DEFINE_FIELD_OFFSET_CONSTANTS
+ #define FIELD_SIZE(Name) (Name##End + 1 - Name)
 diff --git a/src/wasm/wasm-code-manager.h b/src/wasm/wasm-code-manager.h
 index c6a92ccd..5c29e7d6 100644
 --- a/src/wasm/wasm-code-manager.h
@@ -84,3 +385,219 @@ index c6a92ccd..5c29e7d6 100644
    static_assert(sizeof(WasmCode::EffectHandler) == 3 * kIntSize);
  
    base::Vector<const EffectHandler> effect_handlers() const {
+diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
+index 05aa2583..85d67539 100644
+--- a/src/wasm/wasm-objects.cc
++++ b/src/wasm/wasm-objects.cc
+@@ -583,9 +583,7 @@ void WasmTableObject::UpdateDispatchTable(
+     dispatch_table->SetForWrapper(entry_index,
+                                   CheckedCast<WasmImportData>(*implicit_arg),
+                                   *maybe_wrapper, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                  target_func_index,
+-#endif
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                   WasmDispatchTable::kExistingEntry);
+ #if V8_ENABLE_DRUMBRAKE
+   } else if (v8_flags.wasm_jitless) {
+@@ -618,9 +616,7 @@ void WasmTableObject::UpdateDispatchTable(
+     dispatch_table->SetForNonWrapper(
+         entry_index, CheckedCast<WasmTrustedInstanceData>(*implicit_arg),
+         target_instance_data->GetCallTarget(func->func_index), sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-        target_func_index,
+-#endif
++/* V8_ENABLE_DRUMBRAKE disabled */
+         WasmDispatchTable::kExistingEntry);
+   }
+ }
+@@ -673,9 +669,7 @@ void WasmTableObject::UpdateDispatchTable(
+              Builtins::EmbeddedEntryOf(Builtin::kWasmToJsWrapperInvalidSig));
+   dispatch_table->SetForWrapper(entry_index, *import_data, wrapper_handle,
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kExistingEntry);
+ }
+ 
+@@ -702,9 +696,7 @@ void WasmTableObject::UpdateDispatchTable(
+   SBXCHECK(FunctionSigMatchesTable(sig->index(), dispatch_table->table_type()));
+   dispatch_table->SetForWrapper(entry_index, implicit_arg, wrapper_handle,
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kExistingEntry);
+ }
+ 
+@@ -1508,9 +1500,7 @@ FunctionTargetAndImplicitArg::FunctionTargetAndImplicitArg(
+ #endif  // V8_ENABLE_DRUMBRAKE
+   } else {
+     // The function in the target instance was not imported.
+-#if V8_ENABLE_DRUMBRAKE
+-    target_func_index_ = target_func_index;
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+   }
+   call_target_ = target_instance_data->GetCallTarget(target_func_index);
+ }
+@@ -1568,9 +1558,7 @@ void ImportedFunctionEntry::SetWasmToWrapper(
+ 
+   dispatch_table->SetForWrapper(index_, *import_data, std::move(wrapper_handle),
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kNewEntry);
+ }
+ 
+@@ -1592,9 +1580,7 @@ void ImportedFunctionEntry::SetWasmToWasm(
+       instance_data_->dispatch_table_for_imports();
+   dispatch_table->SetForNonWrapper(index_, target_instance_data, call_target,
+                                    sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                   WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                    WasmDispatchTable::kExistingEntry);
+ 
+ #if V8_ENABLE_DRUMBRAKE
+@@ -1782,9 +1768,7 @@ DirectHandle<WasmTrustedInstanceData> WasmTrustedInstanceData::New(
+     trusted_data->set_element_segments(empty_fixed_array);
+     trusted_data->set_managed_native_module(*trusted_managed_native_module);
+     trusted_data->set_globals_start(empty_backing_store_buffer);
+-#if V8_ENABLE_DRUMBRAKE
+-    trusted_data->set_imported_function_indices(*imported_function_indices);
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     if (!shared) trusted_data->set_native_context(*isolate->native_context());
+     trusted_data->set_jump_table_start(native_module->jump_table_start());
+     trusted_data->set_hook_on_function_call_address(
+@@ -2467,9 +2451,7 @@ void SetForNonWrapper(Tagged<DispatchTable> dispatch_table, int index,
+                       Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+                       WasmCodePointer call_target,
+                       wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                      uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                       WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   if (implicit_arg == Smi::zero()) {
+     DCHECK(v8_flags.wasm_jitless ||
+@@ -2513,31 +2495,18 @@ void SetForNonWrapper(Tagged<DispatchTable> dispatch_table, int index,
+ void WasmDispatchTable::SetForNonWrapper(
+     int index, Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+     WasmCodePointer call_target, wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForNonWrapper<WasmDispatchTable>(*this, index, implicit_arg,
+-                                             call_target, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                             function_index,
+-#endif
+-                                             new_or_existing);
++  return v8::internal::SetForNonWrapper<WasmDispatchTable>(
++      *this, index, implicit_arg, call_target, sig_id, new_or_existing);
+ }
+ 
+ void WasmDispatchTableForImports::SetForNonWrapper(
+     int index, Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+     WasmCodePointer call_target, wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForNonWrapper<WasmDispatchTableForImports>(
+-      *this, index, implicit_arg, call_target, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-      function_index,
+-#endif
+-      new_or_existing);
++  return v8::internal::SetForNonWrapper<WasmDispatchTableForImports>(
++      *this, index, implicit_arg, call_target, sig_id, new_or_existing);
+ }
+ 
+ template <AnyWasmDispatchTable DispatchTable>
+@@ -2546,9 +2515,7 @@ void SetForWrapper(
+     Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   DCHECK_NE(implicit_arg, Smi::zero());
+   SBXCHECK(v8_flags.wasm_jitless || !wrapper_handle->has_code() ||
+@@ -2590,15 +2557,11 @@ void WasmDispatchTable::SetForWrapper(
+     int index, Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   return SetForWrapper<WasmDispatchTable>(*this, index, implicit_arg,
+                                           wrapper_handle, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                          function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                           new_or_existing);
+ }
+ 
+@@ -2606,15 +2569,11 @@ void WasmDispatchTableForImports::SetForWrapper(
+     int index, Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   return SetForWrapper<WasmDispatchTableForImports>(*this, index, implicit_arg,
+                                                     wrapper_handle, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                                    function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                                     new_or_existing);
+ }
+ 
+@@ -3022,9 +2981,7 @@ bool WasmExportedFunction::IsWasmExportedFunction(Tagged<Object> object) {
+   Tagged<JSFunction> js_function = Cast<JSFunction>(object);
+   Tagged<Code> code = js_function->code(GetCurrentIsolateForSandbox());
+   if (CodeKind::JS_TO_WASM_FUNCTION != code->kind() &&
+-#if V8_ENABLE_DRUMBRAKE
+-      code->builtin_id() != Builtin::kGenericJSToWasmInterpreterWrapper &&
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+       code->builtin_id() != Builtin::kJSToWasmWrapper &&
+       code->builtin_id() != Builtin::kWasmPromising &&
+       code->builtin_id() != Builtin::kWasmStressSwitch) {
+diff --git a/third_party/rapidhash-v8/rapidhash.h b/third_party/rapidhash-v8/rapidhash.h
+index c67b400c..860d1df1 100644
+--- a/third_party/rapidhash-v8/rapidhash.h
++++ b/third_party/rapidhash-v8/rapidhash.h
+@@ -153,8 +153,13 @@ struct PlainHashReader {
+ /*
+  *  Likely and unlikely macros.
+  */
++#ifdef _MSC_VER
++#define _likely_(x) (x)
++#define _unlikely_(x) (x)
++#else
+ #define _likely_(x) __builtin_expect(x, 1)
+ #define _unlikely_(x) __builtin_expect(x, 0)
++#endif
+ 
+ /*
+  *  64*64 -> 128bit multiply function.

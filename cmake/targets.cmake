@@ -50,13 +50,16 @@ add_library(v8_bigint STATIC ${V8_BIGINT_SOURCES})
 # v8_heap_base
 # =============================================================================
 # Build MASM asm as a separate library to avoid CXX flags leaking to ml64
-add_library(v8_heap_base_asm STATIC ${V8_HEAP_BASE_ASM_SOURCES})
-set_target_properties(v8_heap_base_asm PROPERTIES LINKER_LANGUAGE CXX)
-# Clear all compile options for the MASM-only target
-set_source_files_properties(${V8_HEAP_BASE_ASM_SOURCES} PROPERTIES
-  LANGUAGE ASM_MASM
+add_library(v8_heap_base_asm OBJECT ${V8_HEAP_BASE_ASM_SOURCES})
+set_target_properties(v8_heap_base_asm PROPERTIES
+  LINKER_LANGUAGE CXX
+  # Remove all C/C++ compile flags from MASM target
   COMPILE_OPTIONS ""
   COMPILE_DEFINITIONS ""
+)
+set_source_files_properties(${V8_HEAP_BASE_ASM_SOURCES} PROPERTIES
+  LANGUAGE ASM_MASM
+  COMPILE_FLAGS ""
 )
 
 add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES})

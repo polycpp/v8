@@ -86,9 +86,10 @@ add_compile_definitions(
   V8_SNAPSHOT_COMPRESSION
   V8_ENABLE_SYSTEM_INSTRUMENTATION
   V8_USE_ZLIB
-  V8_ENABLE_CHECKS=0
   V8_CONTIGUOUS_COMPRESSED_RO_SPACE_SIZE_MB=8
   V8_ENABLE_LEAPTIERING
+  CPPGC_CAGED_HEAP
+  CPPGC_YOUNG_GENERATION
   V8_HAVE_TARGET_OS
   V8_TARGET_OS_WIN
 )
@@ -107,6 +108,8 @@ if(V8_ENABLE_I18N)
     U_HAVE_STD_STRING=1
     U_I18N_IMPLEMENTATION
     U_COMMON_IMPLEMENTATION
+    UNISTR_FROM_CHAR_EXPLICIT=
+    UNISTR_FROM_STRING_EXPLICIT=
   )
 endif()
 
@@ -137,6 +140,7 @@ if(MSVC)
   add_compile_options(
     /utf-8           # Source and execution charset
     /Zc:__cplusplus  # Correct __cplusplus macro
+    /Zc:preprocessor # Standards-conforming preprocessor (needed for __VA_OPT__)
     /bigobj          # Large object files (V8 needs this)
     /W3              # Warning level 3
     /std:c++20       # C++20 standard
@@ -205,6 +209,7 @@ include_directories(
   "${V8_ROOT}/third_party/dragonbox/src/include"
   "${V8_ROOT}/third_party/fast_float/src/include"
   "${V8_ROOT}/third_party/simdutf"
+  "${V8_ROOT}/third_party/zlib"
 )
 
 # =============================================================================
