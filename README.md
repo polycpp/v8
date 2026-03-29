@@ -137,28 +137,34 @@ This project targets **x64** only. The source lists and architecture-specific fi
 
 ## Status
 
-**Core libraries build successfully with MSVC 19.50 (VS 18):**
+**Full V8 build completes with MSVC 19.50 (VS 18). ~1950 source files, 0 code errors.**
 
-| Library | Status | Size |
-|---------|--------|------|
-| v8_libbase | Built | 3.2 MB |
-| v8_libplatform | Built | 3.2 MB |
-| v8_compiler | Built | 900 MB |
-| v8_cppgc | Built | 8.9 MB |
-| v8_heap_base | Built | 232 KB |
-| v8_bigint | Built | 1.4 MB |
-| v8_highway | Built | 301 KB |
-| v8_simdutf | Built | 1.7 MB |
-| icuuc | Built | 8.7 MB |
-| icui18n | Built | 22.9 MB |
-| v8_base_without_compiler | In progress | ~830 sources compile |
-| v8_initializers | In progress | depends on above |
-| v8_snapshot | Pending | requires mksnapshot |
+| Library | Size |
+|---------|------|
+| v8_compiler | 859 MB |
+| v8_base_without_compiler | 568 MB |
+| v8_initializers | 286 MB |
+| icui18n | 22 MB |
+| v8_cppgc | 8.4 MB |
+| icuuc | 8.3 MB |
+| v8_libbase | 3.1 MB |
+| v8_libplatform | 3.1 MB |
+| v8_snapshot | 2.6 MB |
+| v8_simdutf | 1.6 MB |
+| v8_bigint | 1.3 MB |
+| v8_init | 488 KB |
+| v8_highway | 294 KB |
+| v8_zlib | 215 KB |
+| v8_heap_base | 227 KB |
+| v8_libsampler | 24 KB |
 
-Tools: `torque.exe` and `bytecode_builtins_list_generator.exe` build and run.
-Torque code generation produces all required C++ files.
+Build tools:
+- `torque.exe` - Torque DSL compiler (generates C++ from .tq files)
+- `mksnapshot.exe` - Snapshot generator (produces embedded builtins + heap snapshot)
+- `bytecode_builtins_list_generator.exe` - Bytecode list generator
+- `gen_regexp_special_case.exe` - RegExp case-folding table generator
 
-The patch file resolves ~20 categories of MSVC incompatibilities.
+The patch file (~730 lines) resolves ~20 categories of MSVC incompatibilities.
 
 ## License
 
