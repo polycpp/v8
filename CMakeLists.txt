@@ -90,6 +90,7 @@ add_compile_definitions(
   V8_ENABLE_LEAPTIERING
   CPPGC_CAGED_HEAP
   CPPGC_YOUNG_GENERATION
+  V8_ENABLE_CONTINUATION_PRESERVED_EMBEDDER_DATA
   V8_HAVE_TARGET_OS
   V8_TARGET_OS_WIN
 )
@@ -142,6 +143,7 @@ if(MSVC)
     /Zc:__cplusplus  # Correct __cplusplus macro
     /Zc:preprocessor # Standards-conforming preprocessor (needed for __VA_OPT__)
     /bigobj          # Large object files (V8 needs this)
+    /Zm2000          # Increase compiler heap space
     /W3              # Warning level 3
     /std:c++20       # C++20 standard
 
