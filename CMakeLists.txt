@@ -226,3 +226,4 @@ include(cmake/abseil.cmake)     # Abseil build
 include(cmake/zlib.cmake)       # zlib build
 include(cmake/targets.cmake)    # Library targets
 include(cmake/snapshot.cmake)   # Snapshot generation
+include(cmake/unittests.cmake)  # Unit tests (optional)
