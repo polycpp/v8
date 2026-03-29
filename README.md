@@ -137,7 +137,28 @@ This project targets **x64** only. The source lists and architecture-specific fi
 
 ## Status
 
-Work in progress. The Torque code generation pipeline and core library compilation work. Additional MSVC patches may be needed for a complete build.
+**Core libraries build successfully with MSVC 19.50 (VS 18):**
+
+| Library | Status | Size |
+|---------|--------|------|
+| v8_libbase | Built | 3.2 MB |
+| v8_libplatform | Built | 3.2 MB |
+| v8_compiler | Built | 900 MB |
+| v8_cppgc | Built | 8.9 MB |
+| v8_heap_base | Built | 232 KB |
+| v8_bigint | Built | 1.4 MB |
+| v8_highway | Built | 301 KB |
+| v8_simdutf | Built | 1.7 MB |
+| icuuc | Built | 8.7 MB |
+| icui18n | Built | 22.9 MB |
+| v8_base_without_compiler | In progress | ~830 sources compile |
+| v8_initializers | In progress | depends on above |
+| v8_snapshot | Pending | requires mksnapshot |
+
+Tools: `torque.exe` and `bytecode_builtins_list_generator.exe` build and run.
+Torque code generation produces all required C++ files.
+
+The patch file resolves ~20 categories of MSVC incompatibilities.
 
 ## License
 

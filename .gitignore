@@ -3,6 +3,7 @@ v8-src/
 
 # Build output
 build/
+build2/
 out/
 cmake-build-*/
 
