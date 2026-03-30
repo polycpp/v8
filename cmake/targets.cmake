@@ -172,3 +172,48 @@ target_link_libraries(v8_base INTERFACE
   v8_base_without_compiler
   v8_compiler
 )
+
+# =============================================================================
+# d8 - V8 developer shell
+# =============================================================================
+set(D8_SOURCES
+  ${V8_ROOT}/src/d8/d8.cc
+  ${V8_ROOT}/src/d8/d8.h
+  ${V8_ROOT}/src/d8/d8-console.cc
+  ${V8_ROOT}/src/d8/d8-console.h
+  ${V8_ROOT}/src/d8/d8-js.cc
+  ${V8_ROOT}/src/d8/d8-platforms.cc
+  ${V8_ROOT}/src/d8/d8-platforms.h
+  ${V8_ROOT}/src/d8/d8-test.cc
+  ${V8_ROOT}/src/d8/d8-windows.cc
+  ${V8_ROOT}/src/d8/async-hooks-wrapper.cc
+  ${V8_ROOT}/src/d8/async-hooks-wrapper.h
+  # Stub inspector (full inspector requires generated protocol headers)
+  ${V8_ROOT}/src/inspector/v8-inspector-stub.cc
+)
+
+add_executable(d8 ${D8_SOURCES})
+target_link_libraries(d8 PRIVATE
+  v8_base
+  v8_snapshot
+  v8_init
+  v8_initializers
+  v8_libbase
+  v8_libplatform
+  v8_libsampler
+  v8_bigint
+  v8_cppgc
+  v8_heap_base
+  v8_simdutf
+  v8_zlib
+  v8_zlib_google
+  v8_highway
+  v8_abseil
+  icu_interface
+)
+add_dependencies(d8 run_torque generate_bytecodes_builtins_list)
+
+if(MSVC)
+  target_compile_options(d8 PRIVATE /bigobj /wd4244 /wd4267 /wd4309)
+  target_link_options(d8 PRIVATE /FORCE:MULTIPLE)
+endif()
