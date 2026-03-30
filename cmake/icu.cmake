@@ -68,15 +68,7 @@ if(MSVC)
 endif()
 
 # =============================================================================
-# ICU stubdata (minimal data - real data loaded at runtime or linked separately)
-# =============================================================================
-add_library(icustubdata STATIC ${ICU_STUBDATA_SOURCES})
-target_include_directories(icustubdata PRIVATE "${ICU_SOURCE}/common")
-target_compile_definitions(icustubdata PRIVATE U_STATIC_IMPLEMENTATION)
-
-# =============================================================================
-# ICU data
-# Check for pre-built ICU data file
+# ICU data - embed real data or use stubdata
 # =============================================================================
 set(ICU_DATA_FILE "")
 file(GLOB _icu_dat_files "${ICU_ROOT}/common/icudtl.dat")
@@ -85,11 +77,40 @@ if(_icu_dat_files)
   message(STATUS "Found ICU data file: ${ICU_DATA_FILE}")
 endif()
 
+if(ICU_DATA_FILE)
+  # Generate a COFF .obj file embedding the real ICU data directly.
+  # This replaces stubdata so locale/collation/etc data is always available.
+  # We generate COFF format directly with Python (instant) rather than
+  # compiling C++ (hours) or assembling MASM (slow for 10MB data).
+  set(ICU_DATA_OBJ "${CMAKE_BINARY_DIR}/gen/icudata.obj")
+  add_custom_command(
+    OUTPUT "${ICU_DATA_OBJ}"
+    COMMAND ${CMAKE_COMMAND} -E env python3
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
+      "${ICU_DATA_FILE}" "${ICU_DATA_OBJ}"
+    DEPENDS "${ICU_DATA_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
+    COMMENT "Generating embedded ICU data object from icudtl.dat"
+  )
+  add_custom_target(icudata_generate DEPENDS "${ICU_DATA_OBJ}")
+  # Create imported static library pointing to the pre-built .obj
+  add_library(icudata STATIC IMPORTED GLOBAL)
+  set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_OBJ}")
+  add_dependencies(icudata icudata_generate)
+  message(STATUS "ICU: embedding real data from ${ICU_DATA_FILE}")
+else()
+  # Fallback to stubdata (empty data, requires runtime file loading)
+  file(GLOB ICU_STUBDATA_SOURCES "${ICU_SOURCE}/stubdata/*.cpp")
+  add_library(icudata STATIC ${ICU_STUBDATA_SOURCES})
+  target_include_directories(icudata PRIVATE "${ICU_SOURCE}/common")
+  target_compile_definitions(icudata PRIVATE U_STATIC_IMPLEMENTATION)
+  message(STATUS "ICU: using stubdata (no icudtl.dat found)")
+endif()
+
 # =============================================================================
 # Combined ICU interface target
 # =============================================================================
 add_library(icu_interface INTERFACE)
-target_link_libraries(icu_interface INTERFACE icui18n icuuc icustubdata)
+target_link_libraries(icu_interface INTERFACE icui18n icuuc icudata)
 target_include_directories(icu_interface INTERFACE
   "${ICU_SOURCE}/common"
   "${ICU_SOURCE}/i18n"

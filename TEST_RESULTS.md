@@ -9,12 +9,12 @@ V8 14.3.127.18, built with MSVC 19.50.35725 (Visual Studio 18 Community), Window
 | Metric | Value |
 |--------|-------|
 | Total tests | 5968 |
-| Passed | **5725** |
-| Reported failures | 243 |
+| Passed | **5728** |
+| Reported failures | 240 |
 | — Parse errors (test runner) | 227 |
 | — DISABLED tests | 6 |
-| — Real issues | 10 |
-| **Effective pass rate** | **99.8%** (5725/5735) |
+| — Real issues | 7 |
+| **Effective pass rate** | **99.88%** (5728/5735) |
 | Smoke test (hello_v8.exe) | **PASS** |
 
 The 227 "parse error" failures are parameterized tests whose names contain spaces
@@ -76,23 +76,39 @@ These previously-failing tests are now fixed:
   golden files directory not found.
   **Fix:** Add `GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST`. Passes.
 
-### Remaining Failures (10 tests)
+### Previously Fixed (now passing with ICU data embedding and path fixes)
 
-These are not V8 engine correctness bugs:
+- **IntlTest.GetAvailableLocales** — Was failing because ICU stubdata had no
+  locale data. **Fix:** Embed real ICU data (icudtl.dat) directly into the
+  binary via COFF object generation, replacing the empty stubdata library.
 
-- **DoubleTest.NormalizedBoundaries** (1) — `DCHECK` failure in floating point
-  boundary calculation. Needs investigation.
-- **ApiIcuTest.LocaleConfigurationChangeNotification** (1) — Fatal OOM in
-  `DateTimePatternGeneratorCache::CreateGenerator`. Resource limit.
-- **BytecodeGeneratorInitTest.HasGoldenFiles** (1) — Golden files not found at
-  relative path `test/unittests/interpreter/bytecode_expectations/`. Path config.
+- **ApiIcuTest.LocaleConfigurationChangeNotification** — Fatal OOM because
+  ICU couldn't find DateTimePatternGenerator data. **Fix:** Same ICU data
+  embedding fix as above.
+
+- **BytecodeGeneratorInitTest.HasGoldenFiles** — Golden files not found at
+  relative path. **Fix:** CMake creates symlink from build dir to V8 source
+  `test/unittests/interpreter/bytecode_expectations/` directory.
+
+### Remaining Failures (7 tests)
+
+These are platform-specific issues, not V8 engine correctness bugs:
+
+- **DoubleTest.NormalizedBoundaries** (1) — CHECK failure in floating point
+  boundary calculation. Suspected MSVC 19.50 codegen issue with 64-bit
+  integer arithmetic. Neither `#pragma optimize("", off)` nor
+  `__declspec(noinline)` resolved it. Does not affect V8 engine correctness
+  (only used in dtoa fast path with fallback).
 - **DateCache.AdoptDefaultFirst**, **DateCache.AdoptDefaultMixed** (2) — Hang
-  (timeout). Tests need V8 platform but don't use `WithDefaultPlatformMixin`.
+  (timeout). Tests use bare `TEST()` macro without `WithDefaultPlatformMixin`,
+  causing ICU timezone operations to deadlock without platform initialization.
 - **LogAllTest.LogAll**, **LogTimerTest.ConsoleTimeEvents** (2) — Hang (timeout).
-  Same platform initialization issue.
-- **IntlTest.GetAvailableLocales** (1) — Check failed. ICU configuration issue.
-- **WeakMapsTest.Shrinking**, **WeakSetsTest.WeakSet_Shrinking** (2) — Check
-  failed. Likely GC timing-sensitive.
+  Windows thread context capture via SuspendThread/GetThreadContext fails to
+  deliver samples, causing the Profiler thread to block on its semaphore.
+  Also skipped on Android in upstream V8.
+- **WeakMapsTest.Shrinking**, **WeakSetsTest.WeakSet_Shrinking** (2) — CHECK
+  failed. EphemeronHashTable doesn't shrink after GC on MSVC. Related to GC
+  compaction/evacuation behavior differing from GCC/Clang builds.
 
 ### Platform Re-initialization
 

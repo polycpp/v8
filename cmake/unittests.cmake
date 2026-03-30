@@ -149,3 +149,14 @@ add_dependencies(v8_unittests run_torque generate_bytecodes_builtins_list genera
 # Print how many test files we found
 list(LENGTH V8_UNITTEST_CC_FILES _test_count)
 message(STATUS "V8 unittests: ${_test_count} test files")
+
+# Create symlink to golden files for bytecode generator tests.
+# The test expects them at "test/unittests/interpreter/bytecode_expectations/"
+# relative to the working directory.
+set(_golden_src "${V8_ROOT}/test/unittests/interpreter/bytecode_expectations")
+set(_golden_dst "${CMAKE_BINARY_DIR}/test/unittests/interpreter/bytecode_expectations")
+if(EXISTS "${_golden_src}" AND NOT EXISTS "${_golden_dst}")
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/test/unittests/interpreter")
+  file(CREATE_LINK "${_golden_src}" "${_golden_dst}" SYMBOLIC)
+  message(STATUS "Created symlink for bytecode golden files")
+endif()
