@@ -1,8 +1,19 @@
 # V8 MSVC Build
 
-CMake build system for building V8 JavaScript engine with MSVC on Windows.
+CMake build system for building the V8 JavaScript engine with MSVC on Windows,
+without requiring Google's depot_tools or GN toolchain.
 
 Targets **V8 14.3.127.18** (matching Node.js LTS).
+
+## Test Results
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5728/5735 (99.88%)** | 7 failures are platform-specific, not engine bugs |
+| mjsunit (JavaScript) | **967/992 (97.5%)** | 25 failures are Release-only flags, TZ diffs, and test runner limits |
+| hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
+
+See [TEST_RESULTS.md](TEST_RESULTS.md) for details and [NOTES.md](NOTES.md) for failure analysis.
 
 ## Prerequisites
 
@@ -42,15 +53,18 @@ CMakeLists.txt                  # Root CMake project
 cmake/
   sources.cmake                 # V8 source file lists (Windows x64)
   torque.cmake                  # Torque compiler + code generation
-  targets.cmake                 # Library targets
+  targets.cmake                 # Library targets + d8 shell
   snapshot.cmake                # Snapshot generation (mksnapshot)
-  icu.cmake                     # ICU build
+  icu.cmake                     # ICU build (embeds icudtl.dat into binary)
+  unittests.cmake               # Unit test binary
   abseil.cmake                  # Abseil C++ integration
   msvc-toolchain.cmake          # Auto-detect MSVC and Windows SDK
+  generate_icu_data.py          # Converts icudtl.dat to COFF .obj
 fetch_deps.py                   # Fetches V8 source + third-party deps
 patches/
-  001-msvc-compatibility.patch  # MSVC source compatibility fixes
-build.bat                       # Windows build helper
+  001-msvc-compatibility.patch  # MSVC source compatibility fixes (~830 lines)
+test/
+  run_mjsunit.py                # mjsunit JavaScript test runner
 ```
 
 ## CMake Options
@@ -70,9 +84,10 @@ build.bat                       # Windows build helper
 
 ## Build Targets
 
-The build produces several static libraries:
+The build produces several static libraries plus executables:
 
-- **v8** - Interface target linking everything
+**Libraries:**
+- **v8_base** - Interface target (v8_base_without_compiler + v8_compiler)
 - **v8_base_without_compiler** - Core V8 runtime
 - **v8_compiler** - TurboFan/Turboshaft optimizing compiler
 - **v8_initializers** - Builtin initialization (Torque-generated)
@@ -82,8 +97,14 @@ The build produces several static libraries:
 - **v8_bigint** - BigInt implementation
 - **v8_heap_base** - GC heap base
 - **v8_cppgc** - C++ garbage collector
+- **icuuc / icui18n / icudata** - ICU (data embedded from icudtl.dat)
 
-Build tools (built during the build):
+**Executables:**
+- **d8** - V8 developer shell (JS REPL, test runner)
+- **v8_unittests** - C++ unit test binary (5735 tests)
+- **hello_v8** - Minimal V8 embedding smoke test
+
+**Build tools** (built during the build):
 - **torque** - V8's Torque DSL compiler
 - **mksnapshot** - Snapshot generator
 - **bytecode_builtins_list_generator** - Bytecode list generator
@@ -127,44 +148,57 @@ Or manually link the static libraries in this order:
 ```
 v8_snapshot v8_initializers v8_compiler v8_base_without_compiler
 v8_cppgc v8_heap_base v8_bigint v8_libplatform v8_libbase
-icui18n icuuc icustubdata
+icui18n icuuc icudata
 dbghelp.lib winmm.lib ws2_32.lib advapi32.lib
 ```
+
+Note: ICU data is embedded directly into the binary (no runtime `icudtl.dat` needed).
 
 ## Architecture
 
 This project targets **x64** only. The source lists and architecture-specific files are configured for x64. Supporting other architectures (arm64, ia32) would require adding the corresponding source files in `cmake/sources.cmake`.
 
+## Running Tests
+
+```bash
+# C++ unit tests
+./build/v8_unittests.exe --gtest_filter="BitsTest*"    # Run specific suite
+./build/v8_unittests.exe                                 # Run all (per-process)
+
+# JavaScript tests (run from v8-src/ directory)
+cd v8-src
+../build/d8.exe --test test/mjsunit/mjsunit.js test/mjsunit/array-length.js
+
+# Run all top-level mjsunit tests
+for f in test/mjsunit/*.js; do
+  FLAGS=$(grep "// Flags:" "$f" | sed 's|.*// Flags:||' | tr '\n' ' ')
+  FILES=$(grep "// Files:" "$f" | sed 's|.*// Files:||' | tr '\n' ' ')
+  timeout 30 ../build/d8.exe --test $FLAGS test/mjsunit/mjsunit.js $FILES "$f"
+done
+```
+
+## MSVC Patches
+
+The `patches/001-msvc-compatibility.patch` (~830 lines) fixes ~20 categories of
+MSVC incompatibilities:
+- GCC `__attribute__((packed))` → `#pragma pack`
+- GCC `__attribute__((visibility))` → removed for static builds
+- GCC `__attribute__((tls_model))` → plain `thread_local`
+- Qualified base class method calls MSVC rejects
+- `constexpr` + `inline` patterns MSVC handles differently
+- Template metaprogramming patterns (regexp bytecodes, Turboshaft reducers)
+- MSVC `initializer_list` materialization differences (test fixes)
+- `__FUNCSIG__` format differences vs GCC `__PRETTY_FUNCTION__`
+
 ## Status
 
-**Full V8 build completes with MSVC 19.50 (VS 18). ~1950 source files, 0 code errors.**
+**Full V8 build + d8 shell + tests pass with MSVC 19.50 (VS 18).**
 
-| Library | Size |
-|---------|------|
-| v8_compiler | 859 MB |
-| v8_base_without_compiler | 568 MB |
-| v8_initializers | 286 MB |
-| icui18n | 22 MB |
-| v8_cppgc | 8.4 MB |
-| icuuc | 8.3 MB |
-| v8_libbase | 3.1 MB |
-| v8_libplatform | 3.1 MB |
-| v8_snapshot | 2.6 MB |
-| v8_simdutf | 1.6 MB |
-| v8_bigint | 1.3 MB |
-| v8_init | 488 KB |
-| v8_highway | 294 KB |
-| v8_zlib | 215 KB |
-| v8_heap_base | 227 KB |
-| v8_libsampler | 24 KB |
-
-Build tools:
-- `torque.exe` - Torque DSL compiler (generates C++ from .tq files)
-- `mksnapshot.exe` - Snapshot generator (produces embedded builtins + heap snapshot)
-- `bytecode_builtins_list_generator.exe` - Bytecode list generator
-- `gen_regexp_special_case.exe` - RegExp case-folding table generator
-
-The patch file (~730 lines) resolves ~20 categories of MSVC incompatibilities.
+- ~2500 source files compiled, 0 code errors
+- d8.exe: fully functional JavaScript shell
+- v8_unittests.exe: 5728/5735 C++ tests pass
+- mjsunit: 967/992 JavaScript tests pass
+- Build time: ~4-6 hours at -j3 (full), ~5 min incremental for d8
 
 ## License
 
