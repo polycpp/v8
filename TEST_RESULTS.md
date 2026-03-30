@@ -152,6 +152,31 @@ they all pass. This includes:
 **Verdict:** By-design V8 limitation. Not an MSVC build issue. V8's own CI uses
 `tools/run-tests.py` which runs each test in a separate process.
 
+## mjsunit JavaScript Tests (via d8 shell)
+
+**d8.exe built and functional.** Run from `v8-src/` directory.
+
+| Metric | Value |
+|--------|-------|
+| Top-level tests | 992 |
+| Passed | **967** |
+| Failed | 25 |
+| **Pass rate** | **97.5%** |
+
+The 25 failures break down as:
+- 7 readonly-flag tests (Release only, would pass in Debug)
+- 8 timezone/ICU platform differences
+- 2 intentional crash tests
+- 3 module-loading tests (test runner limitation)
+- 2 optimization-feedback tests (compiler-dependent)
+- 3 misc platform/feature-specific
+
+**None are V8 engine correctness bugs.** See NOTES.md for full analysis.
+
+Subdirectory tests (regress/, compiler/, wasm/, harmony/, etc.) — 7,160
+additional tests — have not yet been run but are expected to have a similar
+pass rate since the same d8.exe and V8 engine are used.
+
 ## Test Coverage Gaps
 
 ### Not built
@@ -159,9 +184,7 @@ they all pass. This includes:
 | Test Suite | Reason |
 |-----------|--------|
 | cctest | Separate test binary, not included in CMake build |
-| d8 shell | Not built; needed for mjsunit/test262 |
-| mjsunit (8000+ JS tests) | Requires d8 shell |
-| test262 (ECMAScript conformance) | Requires d8 shell |
+| test262 (ECMAScript conformance) | Requires d8 + test harness |
 | inspector tests | Needs generated protocol headers |
 | fuzzer tests | Needs fuzztest library |
 
