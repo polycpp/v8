@@ -159,6 +159,24 @@ index b29311bc..a89e0be3 100644
  
  // LocalHeap is used by the GC to track all threads with heap access in order to
  // stop them before performing a collection. LocalHeaps can be either Parked or
+diff --git a/src/init/icu_util.cc b/src/init/icu_util.cc
+index 67d34955..cfd77805 100644
+--- a/src/init/icu_util.cc
++++ b/src/init/icu_util.cc
+@@ -4,6 +4,13 @@
+ 
+ #include "src/init/icu_util.h"
+ 
++// MSVC build: force file-based ICU data loading so that icudtl.dat
++// is used at runtime instead of empty stubdata.
++#ifdef _MSC_VER
++#undef ICU_UTIL_DATA_IMPL
++#define ICU_UTIL_DATA_IMPL ICU_UTIL_DATA_FILE
++#endif
++
+ #if defined(_WIN32)
+ #include "src/base/win32-headers.h"
+ #endif
 diff --git a/src/maglev/maglev-graph-builder.cc b/src/maglev/maglev-graph-builder.cc
 index 4e2b2ba9..06f93162 100644
 --- a/src/maglev/maglev-graph-builder.cc

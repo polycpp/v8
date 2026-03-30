@@ -52,6 +52,12 @@ int main(int argc, char* argv[]) {
         "new Map([[1,'one'],[2,'two']]).get(2)",
         "(() => { let s = 0; for (let i = 1; i <= 100; i++) s += i; return s; })()",
         "typeof WebAssembly",
+        // ICU / Intl tests
+        "typeof Intl",
+        "new Intl.NumberFormat('en-US').format(1234567.89)",
+        "new Intl.DateTimeFormat('en-US').format(new Date(2025,0,1))",
+        "new Intl.Collator('de').compare('ä', 'z') < 0 ? 'correct' : 'wrong'",
+        "'café'.normalize('NFD').length",
     };
     for (const char* code : tests) {
       v8::Local<v8::String> src =
