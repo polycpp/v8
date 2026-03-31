@@ -118,15 +118,119 @@ fetch_deps.py                   # Fetches V8 source + third-party deps
 | `V8_ENABLE_SNAPSHOT` | ON | Build with startup snapshot |
 | `V8_SHARED_LIBRARY` | OFF | Build as DLL (default: static /MT) |
 
-## Linking Against V8
+## Using V8 in Your Project
 
-Link the static libraries in this order:
+There are two ways to consume V8 from an external CMake project. In both cases,
+the `v8` target automatically propagates include paths, compile definitions
+(`V8_COMPRESS_POINTERS`, etc.), and MSVC flags (`/Zc:__cplusplus`) — no manual
+setup needed beyond linking.
 
+> **Note:** V8 defaults to static CRT (`/MT`). Your project must match by setting
+> `CMAKE_MSVC_RUNTIME_LIBRARY` to `"MultiThreaded$<$<CONFIG:Debug>:Debug>"`.
+
+### Option 1: `add_subdirectory` (build from source)
+
+Build V8 alongside your project. Simple, no install step required.
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(myapp LANGUAGES CXX C ASM_MASM)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+set(V8_SOURCE_DIR "path/to/v8" CACHE PATH "V8 MSVC CMake repo root")
+add_subdirectory("${V8_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/v8-build")
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp PRIVATE v8)
+
+if(MSVC)
+  target_link_options(myapp PRIVATE /FORCE:MULTIPLE)
+endif()
 ```
-v8_snapshot v8_initializers v8_compiler v8_base_without_compiler
-v8_cppgc v8_heap_base v8_bigint v8_libplatform v8_libbase
-icui18n icuuc icudata
-dbghelp.lib winmm.lib ws2_32.lib advapi32.lib
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DV8_SOURCE_DIR=path/to/v8
+cmake --build build
+```
+
+### Option 2: `find_package` (pre-built SDK)
+
+Install V8 once, then use it from any project without rebuilding.
+
+```bash
+# First, build and install V8
+cd path/to/v8
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cmake --install build --prefix C:/v8-sdk
+```
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+project(myapp LANGUAGES CXX C ASM_MASM)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+find_package(v8 REQUIRED)
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp PRIVATE v8::v8)
+```
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:/v8-sdk
+cmake --build build
+```
+
+### Minimal C++ Example
+
+```cpp
+#include "v8.h"
+#include "libplatform/libplatform.h"
+#include <cstdio>
+
+int main(int argc, char* argv[]) {
+  v8::V8::InitializeICUDefaultLocation(argv[0]);
+  v8::V8::InitializeExternalStartupData(argv[0]);
+  std::unique_ptr<v8::Platform> platform = v8::platform::NewDefaultPlatform();
+  v8::V8::InitializePlatform(platform.get());
+  v8::V8::Initialize();
+
+  v8::Isolate::CreateParams params;
+  params.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
+  v8::Isolate* isolate = v8::Isolate::New(params);
+  {
+    v8::Isolate::Scope isolate_scope(isolate);
+    v8::HandleScope handle_scope(isolate);
+    v8::Local<v8::Context> context = v8::Context::New(isolate);
+    v8::Context::Scope context_scope(context);
+
+    v8::Local<v8::String> source =
+        v8::String::NewFromUtf8Literal(isolate, "1 + 2");
+    v8::Local<v8::Script> script =
+        v8::Script::Compile(context, source).ToLocalChecked();
+    v8::Local<v8::Value> result = script->Run(context).ToLocalChecked();
+    v8::String::Utf8Value utf8(isolate, result);
+    printf("Result: %s\n", *utf8);
+  }
+
+  isolate->Dispose();
+  v8::V8::Dispose();
+  v8::V8::DisposePlatform();
+  delete params.array_buffer_allocator;
+  return 0;
+}
 ```
 
 ICU data is embedded directly into the binary — no runtime `icudtl.dat` file needed.
