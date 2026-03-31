@@ -131,10 +131,4 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/test/hello_v8.cc")
   endif()
 endif()
 
-# =============================================================================
-# Install rules
-# =============================================================================
-install(DIRECTORY "${V8_ROOT}/include/"
-  DESTINATION include/v8
-  FILES_MATCHING PATTERN "*.h"
-)
+# Install rules are in cmake/install.cmake

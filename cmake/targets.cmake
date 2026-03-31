@@ -68,8 +68,8 @@ set_source_files_properties(${V8_HEAP_BASE_ASM_SOURCES} PROPERTIES
   COMPILE_FLAGS ""
 )
 
-add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES})
-target_link_libraries(v8_heap_base PUBLIC v8_libbase v8_heap_base_asm)
+add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES} $<TARGET_OBJECTS:v8_heap_base_asm>)
+target_link_libraries(v8_heap_base PUBLIC v8_libbase)
 
 # =============================================================================
 # v8_cppgc

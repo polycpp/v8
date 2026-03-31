@@ -18,8 +18,10 @@ set(ABSL_BUILD_TEST_HELPERS OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 # Ensure abseil uses the same runtime library as V8
 set(ABSL_MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
+# Enable abseil installation alongside V8
+set(ABSL_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 
-add_subdirectory("${ABSEIL_ROOT}" "${CMAKE_BINARY_DIR}/abseil-cpp" EXCLUDE_FROM_ALL)
+add_subdirectory("${ABSEIL_ROOT}" "${CMAKE_BINARY_DIR}/abseil-cpp")
 
 # Create an interface target that aggregates the abseil components V8 needs
 add_library(v8_abseil INTERFACE)
