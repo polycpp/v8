@@ -13,7 +13,9 @@ Targets **V8 14.3.127.18** (matching Node.js LTS).
 | mjsunit (JavaScript) | **967/992 (97.5%)** | 25 failures are Release-only flags, TZ diffs, and test runner limits |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
 
-See [TEST_RESULTS.md](TEST_RESULTS.md) for details and [NOTES.md](NOTES.md) for failure analysis.
+See [docs/test-results.md](docs/test-results.md) for details,
+[docs/unittest-analysis.md](docs/unittest-analysis.md) and
+[docs/mjsunit-analysis.md](docs/mjsunit-analysis.md) for failure analysis.
 
 ## Prerequisites
 
