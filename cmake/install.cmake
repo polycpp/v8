@@ -48,7 +48,8 @@ if(V8_ENABLE_I18N)
 
   if(TARGET icudata)
     get_target_property(_icudata_type icudata TYPE)
-    if(_icudata_type STREQUAL "STATIC_LIBRARY" AND NOT _icudata_type STREQUAL "UNKNOWN_LIBRARY")
+    get_target_property(_icudata_imported icudata IMPORTED)
+    if(_icudata_type STREQUAL "STATIC_LIBRARY" AND NOT _icudata_imported)
       # Built from stubdata sources - regular static lib
       list(APPEND _v8_install_targets icudata)
       set(V8_ICUDATA_INSTALLED_AS "static")

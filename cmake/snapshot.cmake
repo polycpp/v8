@@ -120,6 +120,31 @@ target_link_libraries(v8 INTERFACE
   v8_zlib_google
 )
 
+# ---------------------------------------------------------------------------
+# Public interface for consumers (add_subdirectory / find_package)
+# ---------------------------------------------------------------------------
+# Include path: only the public API headers
+target_include_directories(v8 INTERFACE
+  "$<BUILD_INTERFACE:${V8_ROOT}/include>"
+)
+
+# Embedder-visible compile definitions that must match the V8 build.
+# V8 checks these at Isolate creation and will abort on mismatch.
+set(_v8_public_defs
+  V8_COMPRESS_POINTERS
+  V8_COMPRESS_POINTERS_IN_SHARED_CAGE
+  V8_31BIT_SMIS_ON_64BIT_ARCH
+)
+if(V8_ENABLE_SANDBOX)
+  list(APPEND _v8_public_defs V8_ENABLE_SANDBOX)
+endif()
+target_compile_definitions(v8 INTERFACE ${_v8_public_defs})
+
+# MSVC: consumers need /Zc:__cplusplus so V8 headers pass __cplusplus check
+if(MSVC)
+  target_compile_options(v8 INTERFACE /Zc:__cplusplus)
+endif()
+
 # =============================================================================
 # Smoke test: hello_v8
 # =============================================================================

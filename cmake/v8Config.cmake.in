@@ -198,6 +198,12 @@ if(NOT TARGET v8::v8)
     set_property(TARGET v8::v8 PROPERTY
       INTERFACE_COMPILE_DEFINITIONS ${_v8_consumer_defs})
   endif()
+
+  # MSVC: consumers need /Zc:__cplusplus so V8 headers pass __cplusplus check
+  if(MSVC)
+    set_property(TARGET v8::v8 PROPERTY
+      INTERFACE_COMPILE_OPTIONS /Zc:__cplusplus)
+  endif()
 endif()
 
 # v8::platform - Convenience alias for v8_libplatform
