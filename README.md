@@ -35,7 +35,6 @@ if(MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
-# Option A: build V8 from source alongside your project
 add_subdirectory("path/to/v8" "${CMAKE_BINARY_DIR}/v8-build")
 
 add_executable(myapp main.cpp)
