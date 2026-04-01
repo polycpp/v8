@@ -3,7 +3,7 @@
 CMake build system for building the V8 JavaScript engine with MSVC on Windows,
 without requiring Google's depot_tools or GN toolchain.
 
-Targets **V8 14.3.127.18** (matching Node.js LTS).
+Targets **V8 14.3.127.18**.
 
 ## Test Results
 
