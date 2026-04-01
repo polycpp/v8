@@ -20,25 +20,50 @@ that delegates to specialized sub-agents.
     └─────────────┘           └─────────────┘
 ```
 
+## Phase 0: Branch Creation
+
+**IMPORTANT**: Version branches must be **orphan branches** (no shared history
+with `dev` or other version branches). Each version branch contains only the
+build files for that specific V8 version.
+
+```
+Coordinator:
+  1. Work in a temporary area or on dev initially
+  2. After everything is ready, create an orphan branch:
+     git checkout --orphan v8-{VERSION}
+     git rm -rf . && git clean -fd
+     # Add only the build files (CMakeLists.txt, cmake/, fetch_deps.py, patches/, test/)
+     git add CMakeLists.txt cmake/ fetch_deps.py patches/ test/
+     git commit -m "Add V8 {VERSION} MSVC CMake build"
+```
+
 ## Phase 1: Setup & Discovery
 
 ```
 Coordinator:
-  1. Create branch v8-{VERSION} from dev
-  2. Delegate → [source_generation] generate fetch_deps.py
-  3. Execute fetch_deps.py
-  4. Delegate → [feature_detection] detect version features
-  5. Review features manifest
-  6. If features look wrong → investigate manually
-  7. If features look right → proceed to Phase 2
+  1. Generate fetch_deps.py: python scripts/generate_fetch_deps.py --version {VERSION}
+  2. Execute fetch_deps.py to download V8 source + deps
+  3. Run feature detection: python scripts/detect_features.py --source-dir v8-src
+  4. Review features manifest
+  5. If features look wrong → investigate manually
+  6. If features look right → proceed to Phase 2
 ```
 
-## Phase 2: Code Generation
+## Phase 2: Source Adaptation
+
+The most effective approach (proven on 14.1) is to copy cmake files from the
+**nearest working version branch** and adapt, rather than generating from scratch.
 
 ```
 Coordinator:
-  1. Delegate → [source_generation] generate sources.cmake
-  2. Delegate → [source_generation] generate torque file list
+  1. Copy cmake/ files from nearest version branch (e.g., git show v8-14.3:cmake/sources.cmake)
+  2. Run source diff check (see "Source Diff Workflow" below)
+  3. Remove files that don't exist in the new version
+  4. Add files that are new in this version (verify they compile)
+  5. Check torque files: verify all .tq files in torque.cmake exist
+  6. Update CMakeLists.txt version number
+  7. Update generate_icu_data.py (ICU version auto-detection handles this)
+  8. Delegate → [source_generation] generate torque file list
   3. Generate CMakeLists.txt from template + features
   4. Copy stable cmake modules
   5. Delegate → [plan_review] review the generated files
@@ -189,3 +214,75 @@ After each version is complete:
 - Document lessons learned in `docs/VERSION_GUIDE.md`
 - Update `docs/MSVC_PATTERNS.md` with new patterns discovered
 - Refine prompts based on what worked/didn't work
+
+## Practical Tips (learned from V8 14.1 port)
+
+### Source Diff Workflow
+
+The fastest way to adapt sources.cmake for a new version:
+
+```python
+# Check which files from the reference sources.cmake are missing
+import re, os
+with open('cmake/sources.cmake') as f:
+    files = re.findall(r'src/[^\s)]+\.(?:cc|c|cpp)', f.read())
+missing = [f for f in files if not os.path.exists(f'v8-src/{f}')]
+print(f'Missing: {len(missing)}')
+for m in missing: print(f'  - {m}')
+```
+
+Then check key directories for new files:
+```python
+check_dirs = ['src/compiler/turboshaft', 'src/maglev', 'src/wasm', 'src/sandbox']
+# Compare .cc files on disk vs files in sources.cmake
+```
+
+### MSVC Patch Application
+
+When porting a patch from a nearby version:
+1. Try `git apply --check` first to see which hunks fail
+2. Use `git apply --exclude=<file>` to apply everything that works
+3. Manually fix the excluded files by reading the patch and adapting
+
+### Highway Source Location
+
+Highway .cc files moved between versions:
+- V8 14.3+: `src/hwy/*.cc` (V8-local copy)
+- V8 14.1 and earlier: `third_party/highway/src/hwy/*.cc`
+
+Check which exists and adjust `V8_HIGHWAY_SOURCES` accordingly.
+
+### ICU Version
+
+Each V8 version bundles a different ICU version. The ICU data symbol name
+includes the version (e.g., `icudt74_dat`, `icudt78_dat`). The
+`generate_icu_data.py` auto-detects this from `uvernum.h`.
+
+### Inspector Stub
+
+The `v8-inspector-stub.cc` file provides minimal implementations of the
+`V8Inspector` pure virtual methods so d8 can link without the full inspector
+protocol generator. Each V8 version has slightly different API methods.
+
+To regenerate the stub for a new version:
+1. Read `include/v8-inspector.h`
+2. Find all pure virtual methods in the `V8Inspector` class
+3. Provide no-op implementations
+4. Provide constructor definitions for `V8StackTraceId` (declared but defined in inspector sources)
+
+### Build Parallelism
+
+MSVC runs out of heap space (`C1060`) when compiling many V8 compiler files
+in parallel. Use `-j 4` or `-j 8` instead of `-j 16` for the build step.
+The compiler files in `src/compiler/` are especially heavy.
+
+### Test Considerations
+
+**mjsunit**: Must run from `v8-src/` directory. Test flag parsing must scan
+the first ~30 lines of each file (not stop at first non-comment line).
+Expected pass rate: ~97% for modern versions.
+
+**v8_unittests**: `InitializePlatformForTesting` aborts if the V8 platform
+was already initialized. This prevents running all tests in a single process.
+Individual test suites work fine. This is a V8 test infrastructure limitation,
+not a build issue.

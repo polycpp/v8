@@ -33,13 +33,26 @@ Lessons learned and notes for each V8 version. Updated after completing each ver
 
 ## V8 14.1.146.11 (Node.js v25)
 
-**Status**: Not started
-**Expected difficulty**: Very Low (nearly identical to 14.3)
+**Status**: Complete
+**Actual difficulty**: Very Low
+**Patch size**: ~882 lines, 22 files
+**Test results**: mjsunit 965/989 (97.6%)
 
-### Expected differences from 14.3
-- Minor source file additions/removals
-- Possibly fewer compile definitions (no leaptiering?)
-- Patch should need minimal changes
+### Actual differences from 14.3
+- 11 source files removed (src/hwy/*.cc moved back to third_party, turbolev-frontend-pipeline.cc, save-flags.cc, maglev-known-node-aspects.cc, wasm-tracing.cc)
+- Highway sources at `third_party/highway/src/hwy/` instead of `src/hwy/`
+- wasm-revec-phase.cc and wasm-revec-reducer.cc exist but reference undefined flags — must NOT be added
+- ICU version 74 (vs 78 in 14.3) — `generate_icu_data.py` updated to auto-detect
+- Inspector stub needed updates: `associateExceptionData` returns `bool` not `void`, `connectShared` is a new pure virtual, `compileAndRunInternalScript` doesn't exist, `logAPICalled` doesn't exist
+- `V8StackTraceId` constructors need definitions in the stub (normally in inspector sources)
+
+### MSVC patch porting
+- 15/21 hunks from 14.3 patch applied cleanly
+- 6 files needed manual fixes: maglev-graph-builder.cc (leaptiering ifdefs in params), regexp-bytecodes-inl.h (lambda template call), regexp-code-generator.cc (same pattern), wasm-code-manager.h (not needed — packed struct absent), wasm-objects.cc/h + module-instantiate.cc (drumbrake ifdefs in params), bytecode-generator-unittest.cc (not needed)
+
+### Build notes
+- `-j 16` causes MSVC heap exhaustion on compiler files, use `-j 4` or `-j 8`
+- v8_unittests crash on `InitializePlatformForTesting` re-init (same as 14.3)
 
 ---
 
