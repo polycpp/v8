@@ -45,36 +45,112 @@ def fetch_deps_file(version: str) -> str:
 
 
 def parse_deps(deps_content: str) -> dict:
-    """Parse the DEPS file to extract dependency URLs and revisions."""
+    """Parse the DEPS file to extract dependency URLs and revisions.
+
+    V8's DEPS file uses two formats for third_party entries:
+
+    Format 1 (simple string, possibly with Var()):
+      'third_party/icu':
+        Var('chromium_url') + '/chromium/deps/icu.git' + '@' + 'abc123',
+
+    Format 2 (dict with 'url' key):
+      'third_party/abseil-cpp': {
+        'url': Var('chromium_url') + '/chromium/src/third_party/abseil-cpp.git' + '@' + 'abc123',
+        'condition': '...',
+      },
+    """
     deps = {}
 
-    # The DEPS file is a Python-like dict. Extract the 'deps' section.
-    # We look for patterns like:
-    #   'v8/third_party/foo': {
-    #     'url': 'https://chromium.googlesource.com/foo.git@HASH',
-    #   }
-    # or simpler:
-    #   'v8/third_party/foo': 'https://chromium.googlesource.com/foo.git@HASH',
+    # Step 1: Resolve Var() definitions
+    vars_dict = {}
+    # Find the vars = { ... } block by matching balanced braces
+    vars_start = re.search(r"vars\s*=\s*\{", deps_content)
+    if vars_start:
+        depth = 1
+        pos = vars_start.end()
+        while pos < len(deps_content) and depth > 0:
+            if deps_content[pos] == "{":
+                depth += 1
+            elif deps_content[pos] == "}":
+                depth -= 1
+            pos += 1
+        vars_block = deps_content[vars_start.end() : pos - 1]
+        for m in re.finditer(r"'(\w+)':\s*'([^']*)'", vars_block):
+            vars_dict[m.group(1)] = m.group(2)
 
-    # Extract URL@hash patterns
-    pattern = re.compile(
-        r"'(?:v8/)?third_party/([^']+)':\s*(?:\{[^}]*'url':\s*)?'([^']+@[a-f0-9]+)'"
-    )
-    for m in pattern.finditer(deps_content):
-        name = m.group(1).split("/")[0]  # e.g., "icu/source" -> "icu"
-        url_hash = m.group(2)
-        if "@" in url_hash:
-            url, commit = url_hash.rsplit("@", 1)
-            deps[name] = {"url": url, "commit": commit}
+    def resolve_url_expr(expr: str) -> str:
+        """Resolve a Var('x') + '/path' + '@' + 'hash' expression into a URL@hash string."""
+        # Replace Var('name') with its value
+        def replace_var(m):
+            name = m.group(1)
+            return vars_dict.get(name, f"UNKNOWN_VAR_{name}")
+        resolved = re.sub(r"Var\(['\"](\w+)['\"]\)", replace_var, expr)
+        # Remove all string concatenation: handle any combo of quotes around +
+        # After Var() replacement: `value + '/path' + '@' + 'hash'`
+        resolved = re.sub(r"['\"]?\s*\+\s*['\"]?", "", resolved)
+        # Strip remaining quotes and whitespace
+        resolved = resolved.strip().strip("'\"").strip().rstrip(",").rstrip("'\"")
+        return resolved
 
-    # Also look for direct Var() references and simple string deps
-    simple_pattern = re.compile(
-        r"'(?:v8/)?third_party/([^'/]+)(?:/[^']*)?':\s*'([^']+\.git)@([a-f0-9]+)'"
-    )
-    for m in simple_pattern.finditer(deps_content):
-        name = m.group(1)
-        if name not in deps:
-            deps[name] = {"url": m.group(2), "commit": m.group(3)}
+    # Step 2: Find all third_party dep entries
+    # Join multiline entries: a dep key may be followed by its value on the next line
+    lines = deps_content.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # Match: 'third_party/NAME' or 'third_party/NAME/subdir'
+        key_match = re.match(r"'(?:v8/)?third_party/([^']+)':\s*(.*)", line)
+        if key_match:
+            dep_path = key_match.group(1)
+            dep_name = dep_path.split("/")[0]  # e.g., "dragonbox/src" -> "dragonbox"
+            rest = key_match.group(2).strip()
+
+            # Collect continuation lines if rest is empty or incomplete
+            if not rest or (rest and "@" not in rest and "{" not in rest):
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    rest += " " + next_line
+                    if "@" in next_line or "{" in next_line or next_line == "":
+                        break
+                    i += 1
+
+            # Format 2: dict with 'url' key
+            if "{" in rest:
+                # Collect until closing }
+                block = rest
+                while "}" not in block and i < len(lines) - 1:
+                    i += 1
+                    block += " " + lines[i].strip()
+                url_match = re.search(r"'url':\s*(.*?)(?:,|\})", block)
+                if url_match:
+                    url_expr = url_match.group(1).strip()
+                    resolved = resolve_url_expr(url_expr)
+                    if "@" in resolved:
+                        url, commit = resolved.rsplit("@", 1)
+                        url = url.strip()
+                        commit = commit.strip()
+                        if len(commit) >= 20:  # valid hash
+                            deps[dep_name] = {
+                                "url": url,
+                                "commit": commit,
+                                "path": f"third_party/{dep_path}",
+                            }
+            # Format 1: simple string value (possibly with Var())
+            elif "@" in rest:
+                resolved = resolve_url_expr(rest)
+                if "@" in resolved:
+                    url, commit = resolved.rsplit("@", 1)
+                    url = url.strip()
+                    commit = commit.strip()
+                    if len(commit) >= 20:  # valid hash
+                        deps[dep_name] = {
+                            "url": url,
+                            "commit": commit,
+                            "path": f"third_party/{dep_path}",
+                        }
+        i += 1
 
     return deps
 
@@ -98,11 +174,12 @@ def generate_fetch_script(version: str, v8_commit: str, deps: dict) -> str:
     for name, info in sorted(deps.items()):
         mapped = known_deps.get(name)
         if mapped:
+            dep_path = info.get("path", f"third_party/{name}")
             deps_entries.append(
                 f'    "{mapped}": {{\n'
                 f'        "url": "{info["url"]}",\n'
                 f'        "commit": "{info["commit"]}",\n'
-                f'        "path": "v8-src/third_party/{name}",\n'
+                f'        "path": "v8-src/{dep_path}",\n'
                 f"    }},"
             )
 
