@@ -198,7 +198,8 @@ cmake --build build
 ```cpp
 #include "v8.h"
 #include "libplatform/libplatform.h"
-#include <cstdio>
+#include <iostream>
+#include <memory>
 
 int main(int argc, char* argv[]) {
   v8::V8::InitializeICUDefaultLocation(argv[0]);
@@ -222,7 +223,7 @@ int main(int argc, char* argv[]) {
         v8::Script::Compile(context, source).ToLocalChecked();
     v8::Local<v8::Value> result = script->Run(context).ToLocalChecked();
     v8::String::Utf8Value utf8(isolate, result);
-    printf("Result: %s\n", *utf8);
+    std::cout << "Result: " << *utf8 << std::endl;
   }
 
   isolate->Dispose();
