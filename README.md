@@ -8,9 +8,9 @@ tested CMake build files. Pick a branch below and follow the instructions there.
 
 ## Available Versions
 
-| Branch | V8 Version | Node.js | Status |
-|--------|-----------|---------|--------|
-| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | LTS | **v8_unittests 99.88%**, **mjsunit 97.5%** |
+| Branch | V8 Version | Status |
+|--------|-----------|--------|
+| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | **v8_unittests 99.88%**, **mjsunit 97.5%** |
 
 ## What You Get
 
