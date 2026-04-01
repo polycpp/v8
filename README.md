@@ -67,7 +67,8 @@ target_link_libraries(myapp PRIVATE v8::v8)
 ```cpp
 #include "v8.h"
 #include "libplatform/libplatform.h"
-#include <cstdio>
+#include <iostream>
+#include <memory>
 
 int main(int argc, char* argv[]) {
   v8::V8::InitializeICUDefaultLocation(argv[0]);
@@ -89,7 +90,7 @@ int main(int argc, char* argv[]) {
     v8::Local<v8::Script> script = v8::Script::Compile(ctx, src).ToLocalChecked();
     v8::Local<v8::Value> result = script->Run(ctx).ToLocalChecked();
     v8::String::Utf8Value utf8(isolate, result);
-    printf("Result: %s\n", *utf8);  // "Result: 3"
+    std::cout << "Result: " << *utf8 << std::endl;  // "Result: 3"
   }
 
   isolate->Dispose();
