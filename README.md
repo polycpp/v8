@@ -9,7 +9,7 @@ Targets **V8 14.1.146.11** (Node.js v25).
 
 | Suite | Result | Notes |
 |-------|--------|-------|
-| v8_unittests (C++) | **5917/6018 (98.3%)** | 96 BytecodeGenerator golden-file diffs, 5 other |
+| v8_unittests (C++) | **6013/6018 (99.9%)** | 5 failures are platform-specific, not engine bugs |
 | mjsunit (JavaScript) | **965/989 (97.6%)** | 24 failures are Release-only flags, TZ diffs, etc. |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
 
