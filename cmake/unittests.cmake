@@ -41,10 +41,14 @@ list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]riscv32[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]riscv64[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]loong64[-/.]")
 
-# Exclude platform-specific files not for Windows
+# Exclude platform-specific test files
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "fuchsia")
-list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "posix-unittest")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "gdbserver")
+if(WIN32)
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "posix-unittest")
+else()
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "win-unittest")
+endif()
 
 # Exclude tests that need generated inspector protocol headers (not built yet)
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "inspector/")
@@ -53,7 +57,7 @@ list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "inspector/")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "json/json-unittest")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "profiler/heap-snapshot-unittest")
 
-# Exclude tests with MSVC-specific issues pending fixes
+# Exclude tests with compiler-specific issues pending fixes
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "runtime-call-stats-unittest")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "member-unittest")  # needs CPPGC_POINTER_COMPRESSION
 
@@ -126,17 +130,44 @@ target_include_directories(v8_unittests PRIVATE
 add_library(v8_torque_base_for_test STATIC ${V8_TORQUE_BASE_SOURCES})
 target_link_libraries(v8_torque_base_for_test PUBLIC v8_libbase v8_abseil)
 
-target_link_libraries(v8_unittests PRIVATE
-  v8
-  v8_compiler
-  v8_init
-  v8_torque_base_for_test
-  v8_abseil
-  v8_zlib_google
-  icu_interface
-  gtest
-  gmock
-)
+if(WIN32)
+  target_link_libraries(v8_unittests PRIVATE
+    v8
+    v8_compiler
+    v8_init
+    v8_torque_base_for_test
+    v8_abseil
+    v8_zlib_google
+    icu_interface
+    gtest
+    gmock
+  )
+else()
+  target_link_libraries(v8_unittests PRIVATE
+    -Wl,--start-group
+    v8_snapshot
+    v8_base_without_compiler
+    v8_compiler
+    v8_init
+    v8_initializers
+    v8_libbase
+    v8_libplatform
+    v8_libsampler
+    v8_bigint
+    v8_cppgc
+    v8_heap_base
+    v8_simdutf
+    v8_zlib
+    v8_zlib_google
+    v8_highway
+    v8_abseil
+    v8_torque_base_for_test
+    icu_interface
+    gtest
+    gmock
+    -Wl,--end-group
+  )
+endif()
 
 target_compile_definitions(v8_unittests PRIVATE
   V8_ENABLE_WEBASSEMBLY

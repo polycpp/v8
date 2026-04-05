@@ -44,6 +44,9 @@ target_compile_definitions(icuuc PRIVATE
 )
 if(MSVC)
   target_compile_options(icuuc PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996)
+else()
+  # GCC: -fpermissive needed for incomplete type in is_convertible_v template trait
+  target_compile_options(icuuc PRIVATE -Wno-deprecated-declarations -Wno-unused-function -fpermissive)
 endif()
 
 # =============================================================================
@@ -65,6 +68,8 @@ target_compile_definitions(icui18n PRIVATE
 target_link_libraries(icui18n PUBLIC icuuc)
 if(MSVC)
   target_compile_options(icui18n PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996)
+else()
+  target_compile_options(icui18n PRIVATE -Wno-deprecated-declarations -Wno-unused-function -fpermissive)
 endif()
 
 # =============================================================================
@@ -78,24 +83,45 @@ if(_icu_dat_files)
 endif()
 
 if(ICU_DATA_FILE)
-  # Generate a COFF .obj file embedding the real ICU data directly.
-  # This replaces stubdata so locale/collation/etc data is always available.
-  # We generate COFF format directly with Python (instant) rather than
-  # compiling C++ (hours) or assembling MASM (slow for 10MB data).
-  set(ICU_DATA_OBJ "${CMAKE_BINARY_DIR}/gen/icudata.obj")
-  add_custom_command(
-    OUTPUT "${ICU_DATA_OBJ}"
-    COMMAND ${CMAKE_COMMAND} -E env python3
-      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
-      "${ICU_DATA_FILE}" "${ICU_DATA_OBJ}"
-    DEPENDS "${ICU_DATA_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
-    COMMENT "Generating embedded ICU data object from icudtl.dat"
-  )
-  add_custom_target(icudata_generate DEPENDS "${ICU_DATA_OBJ}")
-  # Create imported static library pointing to the pre-built .obj
-  add_library(icudata STATIC IMPORTED GLOBAL)
-  set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_OBJ}")
-  add_dependencies(icudata icudata_generate)
+  if(WIN32)
+    # Windows: generate a COFF .obj file embedding the real ICU data directly.
+    set(ICU_DATA_OBJ "${CMAKE_BINARY_DIR}/gen/icudata.obj")
+    add_custom_command(
+      OUTPUT "${ICU_DATA_OBJ}"
+      COMMAND ${CMAKE_COMMAND} -E env python3
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
+        "${ICU_DATA_FILE}" "${ICU_DATA_OBJ}"
+      DEPENDS "${ICU_DATA_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
+      COMMENT "Generating embedded ICU data object from icudtl.dat (COFF)"
+    )
+    add_custom_target(icudata_generate DEPENDS "${ICU_DATA_OBJ}")
+    add_library(icudata STATIC IMPORTED GLOBAL)
+    set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_OBJ}")
+    add_dependencies(icudata icudata_generate)
+  else()
+    # Linux: use a .S assembly file with .incbin to embed ICU data.
+    # Detect ICU major version to get the correct symbol name (icudtNN_dat).
+    file(STRINGS "${ICU_SOURCE}/common/unicode/uvernum.h" _icu_ver_line
+      REGEX "U_ICU_VERSION_MAJOR_NUM")
+    string(REGEX MATCH "[0-9]+" ICU_MAJOR_VERSION "${_icu_ver_line}")
+    set(ICU_DATA_SYMBOL "icudt${ICU_MAJOR_VERSION}_dat")
+    message(STATUS "ICU data symbol: ${ICU_DATA_SYMBOL}")
+
+    set(ICU_DATA_ASM "${CMAKE_BINARY_DIR}/gen/icudata.S")
+    file(WRITE "${ICU_DATA_ASM}" "\
+.section .rodata\n\
+.global ${ICU_DATA_SYMBOL}\n\
+.type ${ICU_DATA_SYMBOL}, @object\n\
+.balign 16\n\
+${ICU_DATA_SYMBOL}:\n\
+.incbin \"${ICU_DATA_FILE}\"\n\
+.size ${ICU_DATA_SYMBOL}, . - ${ICU_DATA_SYMBOL}\n\
+\n\
+.section .note.GNU-stack,\"\",@progbits\n\
+")
+    add_library(icudata STATIC "${ICU_DATA_ASM}")
+    set_target_properties(icudata PROPERTIES LINKER_LANGUAGE C)
+  endif()
   message(STATUS "ICU: embedding real data from ${ICU_DATA_FILE}")
 else()
   # Fallback to stubdata (empty data, requires runtime file loading)

@@ -57,16 +57,25 @@ if(V8_ENABLE_I18N)
       # Built from stubdata sources - regular static lib
       list(APPEND _v8_install_targets icudata)
       set(V8_ICUDATA_INSTALLED_AS "static")
-    else()
-      # IMPORTED target from generated .obj - install the file directly
+    elseif(_icudata_imported)
+      # IMPORTED target from generated object - install the file directly
       get_target_property(_icudata_loc icudata IMPORTED_LOCATION)
       if(_icudata_loc)
+        if(WIN32)
+          set(_icudata_install_name "icudata.obj")
+        else()
+          set(_icudata_install_name "icudata.o")
+        endif()
         install(FILES "${_icudata_loc}"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-          RENAME "icudata.obj"
+          RENAME "${_icudata_install_name}"
         )
         set(V8_ICUDATA_INSTALLED_AS "object")
       endif()
+    else()
+      # Regular static library (Linux .incbin approach)
+      list(APPEND _v8_install_targets icudata)
+      set(V8_ICUDATA_INSTALLED_AS "static")
     endif()
   endif()
 endif()

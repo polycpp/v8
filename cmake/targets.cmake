@@ -6,9 +6,13 @@
 # v8_libbase - Platform abstraction layer
 # =============================================================================
 add_library(v8_libbase STATIC ${V8_LIBBASE_SOURCES})
-target_link_libraries(v8_libbase PUBLIC dbghelp.lib winmm.lib ws2_32.lib v8_abseil)
-if(V8_ENABLE_ETW)
-  target_link_libraries(v8_libbase PUBLIC advapi32.lib)
+if(WIN32)
+  target_link_libraries(v8_libbase PUBLIC dbghelp.lib winmm.lib ws2_32.lib v8_abseil)
+  if(V8_ENABLE_ETW)
+    target_link_libraries(v8_libbase PUBLIC advapi32.lib)
+  endif()
+else()
+  target_link_libraries(v8_libbase PUBLIC pthread dl v8_abseil)
 endif()
 
 # =============================================================================
@@ -62,20 +66,23 @@ add_library(v8_bigint STATIC ${V8_BIGINT_SOURCES})
 # =============================================================================
 # v8_heap_base
 # =============================================================================
-# Build MASM asm as a separate library to avoid CXX flags leaking to ml64
-add_library(v8_heap_base_asm OBJECT ${V8_HEAP_BASE_ASM_SOURCES})
-set_target_properties(v8_heap_base_asm PROPERTIES
-  LINKER_LANGUAGE CXX
-  # Remove all C/C++ compile flags from MASM target
-  COMPILE_OPTIONS ""
-  COMPILE_DEFINITIONS ""
-)
-set_source_files_properties(${V8_HEAP_BASE_ASM_SOURCES} PROPERTIES
-  LANGUAGE ASM_MASM
-  COMPILE_FLAGS ""
-)
-
-add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES} $<TARGET_OBJECTS:v8_heap_base_asm>)
+if(WIN32)
+  # Build MASM asm as a separate library to avoid CXX flags leaking to ml64
+  add_library(v8_heap_base_asm OBJECT ${V8_HEAP_BASE_ASM_SOURCES})
+  set_target_properties(v8_heap_base_asm PROPERTIES
+    LINKER_LANGUAGE CXX
+    COMPILE_OPTIONS ""
+    COMPILE_DEFINITIONS ""
+  )
+  set_source_files_properties(${V8_HEAP_BASE_ASM_SOURCES} PROPERTIES
+    LANGUAGE ASM_MASM
+    COMPILE_FLAGS ""
+  )
+  add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES} $<TARGET_OBJECTS:v8_heap_base_asm>)
+else()
+  # On Linux, push_registers_asm.cc is a regular C++ file with inline GAS assembly
+  add_library(v8_heap_base STATIC ${V8_HEAP_BASE_SOURCES} ${V8_HEAP_BASE_ASM_SOURCES})
+endif()
 target_link_libraries(v8_heap_base PUBLIC v8_libbase)
 
 # =============================================================================
@@ -201,35 +208,67 @@ set(D8_SOURCES
   ${V8_ROOT}/src/d8/d8-platforms.cc
   ${V8_ROOT}/src/d8/d8-platforms.h
   ${V8_ROOT}/src/d8/d8-test.cc
-  ${V8_ROOT}/src/d8/d8-windows.cc
   ${V8_ROOT}/src/d8/async-hooks-wrapper.cc
   ${V8_ROOT}/src/d8/async-hooks-wrapper.h
   # Stub inspector (full inspector requires generated protocol headers)
-  ${V8_ROOT}/src/inspector/v8-inspector-stub.cc
+  ${CMAKE_SOURCE_DIR}/v8-inspector-stub.cc
 )
+if(WIN32)
+  list(APPEND D8_SOURCES ${V8_ROOT}/src/d8/d8-windows.cc)
+else()
+  list(APPEND D8_SOURCES ${V8_ROOT}/src/d8/d8-posix.cc)
+endif()
 
 add_executable(d8 ${D8_SOURCES})
-target_link_libraries(d8 PRIVATE
-  v8_base
-  v8_snapshot
-  v8_init
-  v8_initializers
-  v8_libbase
-  v8_libplatform
-  v8_libsampler
-  v8_bigint
-  v8_cppgc
-  v8_heap_base
-  v8_zlib
-  v8_zlib_google
-  v8_abseil
-  icu_interface
-)
-if(TARGET v8_simdutf)
-  target_link_libraries(d8 PRIVATE v8_simdutf)
-endif()
-if(TARGET v8_highway)
-  target_link_libraries(d8 PRIVATE v8_highway)
+if(WIN32)
+  target_link_libraries(d8 PRIVATE
+    v8_base
+    v8_snapshot
+    v8_init
+    v8_initializers
+    v8_libbase
+    v8_libplatform
+    v8_libsampler
+    v8_bigint
+    v8_cppgc
+    v8_heap_base
+    v8_zlib
+    v8_zlib_google
+    v8_abseil
+    icu_interface
+  )
+  if(TARGET v8_simdutf)
+    target_link_libraries(d8 PRIVATE v8_simdutf)
+  endif()
+  if(TARGET v8_highway)
+    target_link_libraries(d8 PRIVATE v8_highway)
+  endif()
+else()
+  target_link_libraries(d8 PRIVATE
+    -Wl,--start-group
+    v8_snapshot
+    v8_base_without_compiler
+    v8_compiler
+    v8_init
+    v8_initializers
+    v8_libbase
+    v8_libplatform
+    v8_libsampler
+    v8_bigint
+    v8_cppgc
+    v8_heap_base
+    v8_zlib
+    v8_zlib_google
+    v8_abseil
+    icu_interface
+    -Wl,--end-group
+  )
+  if(TARGET v8_simdutf)
+    target_link_libraries(d8 PRIVATE v8_simdutf)
+  endif()
+  if(TARGET v8_highway)
+    target_link_libraries(d8 PRIVATE v8_highway)
+  endif()
 endif()
 add_dependencies(d8 run_torque generate_bytecodes_builtins_list)
 

@@ -346,8 +346,13 @@ add_executable(torque
   ${V8_TORQUE_SOURCES}
   ${V8_LIBBASE_SOURCES}
 )
-target_compile_definitions(torque PRIVATE V8_TORQUE_COMPILER _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(torque PRIVATE dbghelp.lib winmm.lib ws2_32.lib)
+target_compile_definitions(torque PRIVATE V8_TORQUE_COMPILER)
+if(WIN32)
+  target_compile_definitions(torque PRIVATE _CRT_SECURE_NO_WARNINGS)
+  target_link_libraries(torque PRIVATE dbghelp.lib winmm.lib ws2_32.lib)
+else()
+  target_link_libraries(torque PRIVATE pthread dl)
+endif()
 # Torque includes v8_libbase sources which depend on abseil headers
 target_link_libraries(torque PRIVATE v8_abseil)
 
