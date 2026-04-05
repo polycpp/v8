@@ -99,17 +99,23 @@ if(ICU_DATA_FILE)
     set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_OBJ}")
     add_dependencies(icudata icudata_generate)
   else()
-    # Linux: use a .S assembly file with .incbin to embed ICU data
-    # with the exact symbol name ICU expects (icudt78_dat).
+    # Linux: use a .S assembly file with .incbin to embed ICU data.
+    # Detect ICU major version to get the correct symbol name (icudtNN_dat).
+    file(STRINGS "${ICU_SOURCE}/common/unicode/uvernum.h" _icu_ver_line
+      REGEX "U_ICU_VERSION_MAJOR_NUM")
+    string(REGEX MATCH "[0-9]+" ICU_MAJOR_VERSION "${_icu_ver_line}")
+    set(ICU_DATA_SYMBOL "icudt${ICU_MAJOR_VERSION}_dat")
+    message(STATUS "ICU data symbol: ${ICU_DATA_SYMBOL}")
+
     set(ICU_DATA_ASM "${CMAKE_BINARY_DIR}/gen/icudata.S")
     file(WRITE "${ICU_DATA_ASM}" "\
 .section .rodata\n\
-.global icudt78_dat\n\
-.type icudt78_dat, @object\n\
+.global ${ICU_DATA_SYMBOL}\n\
+.type ${ICU_DATA_SYMBOL}, @object\n\
 .balign 16\n\
-icudt78_dat:\n\
+${ICU_DATA_SYMBOL}:\n\
 .incbin \"${ICU_DATA_FILE}\"\n\
-.size icudt78_dat, . - icudt78_dat\n\
+.size ${ICU_DATA_SYMBOL}, . - ${ICU_DATA_SYMBOL}\n\
 \n\
 .section .note.GNU-stack,\"\",@progbits\n\
 ")
