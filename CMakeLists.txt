@@ -1,10 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
-project(v8-msvc VERSION 14.1.146 LANGUAGES CXX C ASM_MASM)
 
 # =============================================================================
-# V8 MSVC Build - CMake project
+# V8 CMake Build (Windows MSVC / Linux GCC/Clang)
 # Targets V8 14.1.146.11 (matching Node.js LTS)
 # =============================================================================
+if(WIN32)
+  project(v8 VERSION 14.1.146 LANGUAGES CXX C ASM_MASM)
+else()
+  project(v8 VERSION 14.1.146 LANGUAGES CXX C ASM)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,9 +30,11 @@ option(V8_ENABLE_SPARKPLUG "Enable Sparkplug baseline compiler" ON)
 option(V8_ENABLE_TURBOFAN "Enable TurboFan optimizing compiler" ON)
 option(V8_ENABLE_POINTER_COMPRESSION "Enable pointer compression" ON)
 option(V8_ENABLE_SANDBOX "Enable V8 sandbox" OFF)
-option(V8_ENABLE_ETW "Enable ETW stack walking (Windows)" ON)
 option(V8_ENABLE_SNAPSHOT "Build with snapshot" ON)
 option(V8_SHARED_LIBRARY "Build V8 as shared library" OFF)
+if(WIN32)
+  option(V8_ENABLE_ETW "Enable ETW stack walking (Windows)" ON)
+endif()
 
 # Generated files directory
 set(V8_GENERATED_DIR "${CMAKE_BINARY_DIR}/gen" CACHE PATH "Generated files directory")
@@ -47,30 +53,19 @@ endif()
 
 message(STATUS "V8 target architecture: ${V8_TARGET_ARCH}")
 message(STATUS "V8 version: 14.1.146.11")
+message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # =============================================================================
 # Global compile definitions
 # =============================================================================
 add_compile_definitions(
-  # Platform
-  WIN32
-  _WIN32
-  NOMINMAX
-  _CRT_RAND_S
-  _WIN32_WINNT=0x0A00
-  _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS
-  _CRT_SECURE_NO_WARNINGS
-  UNICODE
-  _UNICODE
-
-  # V8 core
+  # V8 core (platform-independent)
   V8_TARGET_ARCH_X64
   V8_HOST_ARCH_X64
   V8_COMPRESS_POINTERS
   V8_31BIT_SMIS_ON_64BIT_ARCH
   V8_DEPRECATION_WARNINGS
   V8_IMMINENT_DEPRECATION_WARNINGS
-  V8_WIN64_UNWINDING_INFO
   V8_ENABLE_TURBOFAN
   V8_ENABLE_SPARKPLUG
   V8_TYPED_ARRAY_MAX_SIZE_IN_HEAP=64
@@ -84,7 +79,6 @@ add_compile_definitions(
   V8_EXTERNAL_CODE_SPACE
   V8_ENABLE_REGEXP_INTERPRETER_THREADED_DISPATCH
   V8_SNAPSHOT_COMPRESSION
-  V8_ENABLE_SYSTEM_INSTRUMENTATION
   V8_USE_ZLIB
   V8_CONTIGUOUS_COMPRESSED_RO_SPACE_SIZE_MB=8
   V8_ENABLE_LEAPTIERING
@@ -92,8 +86,26 @@ add_compile_definitions(
   CPPGC_YOUNG_GENERATION
   V8_ENABLE_CONTINUATION_PRESERVED_EMBEDDER_DATA
   V8_HAVE_TARGET_OS
-  V8_TARGET_OS_WIN
 )
+
+# Platform-specific definitions
+if(WIN32)
+  add_compile_definitions(
+    WIN32 _WIN32 NOMINMAX
+    _CRT_RAND_S
+    _WIN32_WINNT=0x0A00
+    _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS
+    _CRT_SECURE_NO_WARNINGS
+    UNICODE _UNICODE
+    V8_WIN64_UNWINDING_INFO
+    V8_ENABLE_SYSTEM_INSTRUMENTATION
+    V8_TARGET_OS_WIN
+  )
+else()
+  add_compile_definitions(
+    V8_TARGET_OS_LINUX
+  )
+endif()
 
 if(V8_ENABLE_POINTER_COMPRESSION)
   add_compile_definitions(V8_COMPRESS_POINTERS V8_COMPRESS_POINTERS_IN_SHARED_CAGE)
@@ -135,7 +147,7 @@ if(V8_ENABLE_SANDBOX)
 endif()
 
 # =============================================================================
-# Global MSVC compiler flags (matching Node.js GYP configuration)
+# Compiler flags
 # =============================================================================
 if(MSVC)
   add_compile_options(
@@ -196,6 +208,52 @@ if(MSVC)
 
   # Linker: 2MB stack for x64
   add_link_options(/STACK:2097152)
+else()
+  # GCC / Clang
+  add_compile_options(
+    -fPIC
+    -fno-strict-aliasing
+    -fdata-sections
+    -ffunction-sections
+    -Wno-invalid-offsetof
+    -Wno-unused-parameter
+    -Wno-implicit-fallthrough
+    -Wno-sign-compare
+    -Wno-missing-field-initializers
+    -Wno-comment
+    -Wno-redundant-move
+  )
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(
+      -Wno-undefined-var-template
+      -Wno-tautological-constant-out-of-range-compare
+    )
+  endif()
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(
+      -Wno-stringop-overflow
+      -Wno-class-memaccess
+      -Wno-array-bounds
+      -Wno-nonnull
+      -Wno-dangling-pointer
+    )
+  endif()
+
+  # Release flags
+  if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    add_compile_options(-O2)
+    add_link_options(-Wl,--gc-sections)
+  endif()
+
+  # Debug flags
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_options(-O0 -g)
+    add_compile_definitions(DEBUG V8_ENABLE_CHECKS)
+  endif()
+
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 # =============================================================================
