@@ -45,9 +45,39 @@ def parse_test_directives(test_path):
     return flags, files, no_harness
 
 
+# Flags that are readonly in Release builds — tests requesting these will
+# always abort with "Contradictory value for readonly flag".
+RELEASE_READONLY_FLAGS = {
+    "--verify-heap", "--enable-slow-asserts", "--debug-code",
+    "--sandbox-testing", "--sandbox-fuzzing",
+    "--expose-memory-corruption-api",
+    "--print-code", "--print-ast", "--print-opt-code-filter",
+    "--code-comments", "--code-stats", "--check-handle-count",
+    "--gdbjit", "--perf-prof", "--perf-prof-unwinding-info",
+    "--enable-testing-opcode-in-wasm",
+    "--always-use-string-forwarding-table",
+    "--wasm-opt",
+}
+
+
 def run_test(d8_path, test_path, mjsunit_js, v8_root, timeout):
     """Run a single mjsunit test. Returns (test_name, passed, duration, error)."""
     flags, extra_files, no_harness = parse_test_directives(test_path)
+
+    # Skip tests that request debug-only flags (Release builds compile these
+    # as readonly constants, so V8 aborts with "Contradictory value").
+    # Also match --no-<flag> negated forms.
+    def is_debug_flag(f):
+        base = f.split("=")[0]
+        if base in RELEASE_READONLY_FLAGS:
+            return True
+        if base.startswith("--no-") and ("--" + base[5:]) in RELEASE_READONLY_FLAGS:
+            return True
+        return False
+    debug_flags = [f for f in flags if is_debug_flag(f)]
+    if debug_flags:
+        test_name = os.path.relpath(test_path, os.path.join(v8_root, "test", "mjsunit"))
+        return test_name, None, 0.0, f"SKIP (debug-only flags: {' '.join(debug_flags)})"
 
     cmd = [d8_path, "--test"]
     cmd.extend(flags)
@@ -149,23 +179,32 @@ def main():
 
     passed = 0
     failed = 0
+    skipped = 0
     errors = []
     start_time = time.time()
+
+    def handle_result(name, ok, dur, err):
+        nonlocal passed, failed, skipped
+        if ok is None:
+            skipped += 1
+            if args.verbose:
+                print(f"  SKIP  {name} -- {err}")
+        elif ok:
+            passed += 1
+            if args.verbose:
+                print(f"  PASS  {name} ({dur:.1f}s)")
+        else:
+            failed += 1
+            errors.append((name, err))
+            print(f"  FAIL  {name} ({dur:.1f}s) -- {err}")
 
     if args.jobs <= 1:
         for i, test in enumerate(tests):
             name, ok, dur, err = run_test(d8_path, test, mjsunit_js, v8_root, args.timeout)
-            if ok:
-                passed += 1
-                if args.verbose:
-                    print(f"  PASS  {name} ({dur:.1f}s)")
-            else:
-                failed += 1
-                errors.append((name, err))
-                print(f"  FAIL  {name} ({dur:.1f}s) -- {err}")
+            handle_result(name, ok, dur, err)
 
             if (i + 1) % 100 == 0:
-                print(f"  ... {i+1}/{total} ({passed} pass, {failed} fail)")
+                print(f"  ... {i+1}/{total} ({passed} pass, {failed} fail, {skipped} skip)")
     else:
         with ThreadPoolExecutor(max_workers=args.jobs) as pool:
             futures = {
@@ -176,23 +215,19 @@ def main():
             for future in as_completed(futures):
                 done += 1
                 name, ok, dur, err = future.result()
-                if ok:
-                    passed += 1
-                    if args.verbose:
-                        print(f"  PASS  {name} ({dur:.1f}s)")
-                else:
-                    failed += 1
-                    errors.append((name, err))
-                    print(f"  FAIL  {name} ({dur:.1f}s) -- {err}")
+                handle_result(name, ok, dur, err)
 
                 if done % 100 == 0:
-                    print(f"  ... {done}/{total} ({passed} pass, {failed} fail)")
+                    print(f"  ... {done}/{total} ({passed} pass, {failed} fail, {skipped} skip)")
 
     elapsed = time.time() - start_time
+    run_total = passed + failed  # Exclude skipped from denominator
     print()
     print(f"{'='*60}")
-    print(f"Results: {passed}/{total} passed, {failed} failed ({elapsed:.0f}s)")
-    print(f"Pass rate: {100*passed/total:.1f}%" if total > 0 else "No tests")
+    print(f"Results: {passed}/{run_total} passed, {failed} failed, {skipped} skipped ({elapsed:.0f}s)")
+    print(f"Pass rate: {100*passed/run_total:.1f}%" if run_total > 0 else "No tests")
+    if skipped:
+        print(f"  ({skipped} tests skipped — require debug-only flags)")
     print(f"{'='*60}")
 
     if errors and not args.verbose:

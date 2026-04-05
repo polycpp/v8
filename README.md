@@ -10,7 +10,7 @@ Targets **V8 13.6.233.17** (Node.js v24 LTS "Krypton").
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **5752/5764 (99.8%)** | 12 failures: conservative stack visitor, logging, weak collections |
-| mjsunit (JavaScript) | **7442/7658 (97.2%)** | 177 are Release-only flag conflicts; adjusted 99.5% |
+| mjsunit (JavaScript) | **7440/7502 (99.2%)** | 62 real failures, 156 skipped (debug-only flags) |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
 
@@ -125,14 +125,14 @@ target_link_libraries(myapp PRIVATE v8::v8)
 
 These are platform-specific issues, not engine correctness bugs.
 
-### mjsunit (216 failures)
+### mjsunit (62 failures, 156 skipped)
 
-- **177 tests**: "Contradictory value for readonly flag" -- tests try to set
-  flags that conflict with Release mode defaults (e.g., `--print-ast`,
-  `--enable-slow-asserts`). Not real failures.
-- **~38 tests**: Various issues including timezone differences, platform-specific
-  behavior, and tests requiring debug-only features.
-- **1 test**: Timeout.
+- **156 tests skipped**: Require debug-only flags (`--verify-heap`,
+  `--enable-slow-asserts`, `--debug-code`, etc.) that are readonly in Release builds.
+  The test runner auto-detects and skips these.
+- **~62 tests failed**: Various issues including timezone differences (e.g.,
+  `tzoffset-seoul-noi18n.js`), missing `Float16Array`, log capture limitations,
+  and platform-specific behavior.
 
 ## Build Notes
 
