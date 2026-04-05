@@ -6,6 +6,9 @@ build*/
 out/
 cmake-build-*/
 
+# Internal notes (not committed)
+internal/
+
 # IDE
 .vs/
 .vscode/
