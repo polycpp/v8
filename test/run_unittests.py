@@ -45,9 +45,13 @@ def get_tests(exe_path):
 def run_test(exe_path, test_name, timeout=60):
     """Run a single test. Returns (passed, failed, error_msg)."""
     try:
+        # Run from the exe's directory so tests find golden files via
+        # relative paths (e.g. test/unittests/interpreter/bytecode_expectations/)
+        exe_dir = os.path.dirname(os.path.abspath(exe_path))
         result = subprocess.run(
             [exe_path, f"--gtest_filter={test_name}"],
-            capture_output=True, text=True, timeout=timeout
+            capture_output=True, text=True, timeout=timeout,
+            cwd=exe_dir
         )
         output = result.stdout + result.stderr
         if "[  PASSED  ] 1 test" in output:
@@ -84,12 +88,13 @@ def main():
     parser.add_argument("--summary", action="store_true")
     args = parser.parse_args()
 
-    if not os.path.exists(args.exe):
-        print(f"Error: {args.exe} not found")
+    exe_path = os.path.abspath(args.exe)
+    if not os.path.exists(exe_path):
+        print(f"Error: {exe_path} not found")
         sys.exit(1)
 
-    print(f"Listing tests from {args.exe}...")
-    tests = get_tests(args.exe)
+    print(f"Listing tests from {exe_path}...")
+    tests = get_tests(exe_path)
     print(f"Found {len(tests)} tests")
 
     if args.suite:
@@ -110,7 +115,7 @@ def main():
     start = time.time()
 
     for i, test in enumerate(tests):
-        ok, err = run_test(args.exe, test, args.timeout)
+        ok, err = run_test(exe_path, test, args.timeout)
         if ok:
             passed += 1
             if not args.summary:
