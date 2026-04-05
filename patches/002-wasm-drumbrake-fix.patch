@@ -1,0 +1,200 @@
+diff --git a/src/wasm/wasm-objects.cc b/src/wasm/wasm-objects.cc
+index 05aa2583..ea699815 100644
+--- a/src/wasm/wasm-objects.cc
++++ b/src/wasm/wasm-objects.cc
+@@ -583,9 +583,7 @@ void WasmTableObject::UpdateDispatchTable(
+     dispatch_table->SetForWrapper(entry_index,
+                                   CheckedCast<WasmImportData>(*implicit_arg),
+                                   *maybe_wrapper, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                  target_func_index,
+-#endif
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                   WasmDispatchTable::kExistingEntry);
+ #if V8_ENABLE_DRUMBRAKE
+   } else if (v8_flags.wasm_jitless) {
+@@ -618,9 +616,7 @@ void WasmTableObject::UpdateDispatchTable(
+     dispatch_table->SetForNonWrapper(
+         entry_index, CheckedCast<WasmTrustedInstanceData>(*implicit_arg),
+         target_instance_data->GetCallTarget(func->func_index), sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-        target_func_index,
+-#endif
++/* V8_ENABLE_DRUMBRAKE disabled */
+         WasmDispatchTable::kExistingEntry);
+   }
+ }
+@@ -673,9 +669,7 @@ void WasmTableObject::UpdateDispatchTable(
+              Builtins::EmbeddedEntryOf(Builtin::kWasmToJsWrapperInvalidSig));
+   dispatch_table->SetForWrapper(entry_index, *import_data, wrapper_handle,
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kExistingEntry);
+ }
+ 
+@@ -702,9 +696,7 @@ void WasmTableObject::UpdateDispatchTable(
+   SBXCHECK(FunctionSigMatchesTable(sig->index(), dispatch_table->table_type()));
+   dispatch_table->SetForWrapper(entry_index, implicit_arg, wrapper_handle,
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kExistingEntry);
+ }
+ 
+@@ -1508,9 +1500,7 @@ FunctionTargetAndImplicitArg::FunctionTargetAndImplicitArg(
+ #endif  // V8_ENABLE_DRUMBRAKE
+   } else {
+     // The function in the target instance was not imported.
+-#if V8_ENABLE_DRUMBRAKE
+-    target_func_index_ = target_func_index;
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+   }
+   call_target_ = target_instance_data->GetCallTarget(target_func_index);
+ }
+@@ -1568,9 +1558,7 @@ void ImportedFunctionEntry::SetWasmToWrapper(
+ 
+   dispatch_table->SetForWrapper(index_, *import_data, std::move(wrapper_handle),
+                                 sig->index(),
+-#if V8_ENABLE_DRUMBRAKE
+-                                WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                 WasmDispatchTable::kNewEntry);
+ }
+ 
+@@ -1592,9 +1580,7 @@ void ImportedFunctionEntry::SetWasmToWasm(
+       instance_data_->dispatch_table_for_imports();
+   dispatch_table->SetForNonWrapper(index_, target_instance_data, call_target,
+                                    sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                   WasmDispatchTable::kInvalidFunctionIndex,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                                    WasmDispatchTable::kExistingEntry);
+ 
+ #if V8_ENABLE_DRUMBRAKE
+@@ -1782,9 +1768,7 @@ DirectHandle<WasmTrustedInstanceData> WasmTrustedInstanceData::New(
+     trusted_data->set_element_segments(empty_fixed_array);
+     trusted_data->set_managed_native_module(*trusted_managed_native_module);
+     trusted_data->set_globals_start(empty_backing_store_buffer);
+-#if V8_ENABLE_DRUMBRAKE
+-    trusted_data->set_imported_function_indices(*imported_function_indices);
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     if (!shared) trusted_data->set_native_context(*isolate->native_context());
+     trusted_data->set_jump_table_start(native_module->jump_table_start());
+     trusted_data->set_hook_on_function_call_address(
+@@ -2467,9 +2451,7 @@ void SetForNonWrapper(Tagged<DispatchTable> dispatch_table, int index,
+                       Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+                       WasmCodePointer call_target,
+                       wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                      uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+                       WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   if (implicit_arg == Smi::zero()) {
+     DCHECK(v8_flags.wasm_jitless ||
+@@ -2513,31 +2495,18 @@ void SetForNonWrapper(Tagged<DispatchTable> dispatch_table, int index,
+ void WasmDispatchTable::SetForNonWrapper(
+     int index, Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+     WasmCodePointer call_target, wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForNonWrapper<WasmDispatchTable>(*this, index, implicit_arg,
+-                                             call_target, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                             function_index,
+-#endif
+-                                             new_or_existing);
++  return v8::internal::SetForNonWrapper<WasmDispatchTable>(
++      *this, index, implicit_arg, call_target, sig_id, new_or_existing);
+ }
+ 
+ void WasmDispatchTableForImports::SetForNonWrapper(
+     int index, Tagged<Union<Smi, WasmTrustedInstanceData>> implicit_arg,
+     WasmCodePointer call_target, wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForNonWrapper<WasmDispatchTableForImports>(
+-      *this, index, implicit_arg, call_target, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-      function_index,
+-#endif
+-      new_or_existing);
++  return v8::internal::SetForNonWrapper<WasmDispatchTableForImports>(
++      *this, index, implicit_arg, call_target, sig_id, new_or_existing);
+ }
+ 
+ template <AnyWasmDispatchTable DispatchTable>
+@@ -2546,9 +2515,7 @@ void SetForWrapper(
+     Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+   DCHECK_NE(implicit_arg, Smi::zero());
+   SBXCHECK(v8_flags.wasm_jitless || !wrapper_handle->has_code() ||
+@@ -2590,32 +2557,19 @@ void WasmDispatchTable::SetForWrapper(
+     int index, Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForWrapper<WasmDispatchTable>(*this, index, implicit_arg,
+-                                          wrapper_handle, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                          function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
+-                                          new_or_existing);
++  return v8::internal::SetForWrapper<WasmDispatchTable>(
++      *this, index, implicit_arg, wrapper_handle, sig_id, new_or_existing);
+ }
+ 
+ void WasmDispatchTableForImports::SetForWrapper(
+     int index, Tagged<WasmImportData> implicit_arg,
+     std::shared_ptr<wasm::WasmImportWrapperHandle> wrapper_handle,
+     wasm::CanonicalTypeIndex sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-    uint32_t function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
+     WasmDispatchTable::NewOrExistingEntry new_or_existing) {
+-  return SetForWrapper<WasmDispatchTableForImports>(*this, index, implicit_arg,
+-                                                    wrapper_handle, sig_id,
+-#if V8_ENABLE_DRUMBRAKE
+-                                                    function_index,
+-#endif  // V8_ENABLE_DRUMBRAKE
+-                                                    new_or_existing);
++  return v8::internal::SetForWrapper<WasmDispatchTableForImports>(
++      *this, index, implicit_arg, wrapper_handle, sig_id, new_or_existing);
+ }
+ 
+ template <AnyWasmDispatchTable DispatchTable>
+@@ -3022,9 +2976,7 @@ bool WasmExportedFunction::IsWasmExportedFunction(Tagged<Object> object) {
+   Tagged<JSFunction> js_function = Cast<JSFunction>(object);
+   Tagged<Code> code = js_function->code(GetCurrentIsolateForSandbox());
+   if (CodeKind::JS_TO_WASM_FUNCTION != code->kind() &&
+-#if V8_ENABLE_DRUMBRAKE
+-      code->builtin_id() != Builtin::kGenericJSToWasmInterpreterWrapper &&
+-#endif  // V8_ENABLE_DRUMBRAKE
++/* V8_ENABLE_DRUMBRAKE disabled */
+       code->builtin_id() != Builtin::kJSToWasmWrapper &&
+       code->builtin_id() != Builtin::kWasmPromising &&
+       code->builtin_id() != Builtin::kWasmStressSwitch) {

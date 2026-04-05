@@ -16,8 +16,10 @@ set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 set(ABSL_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ABSL_BUILD_TEST_HELPERS OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-# Ensure abseil uses the same runtime library as V8
-set(ABSL_MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
+# Ensure abseil uses the same runtime library as V8 on Windows
+if(MSVC)
+  set(ABSL_MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
+endif()
 # Enable abseil installation alongside V8
 set(ABSL_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 

@@ -81,13 +81,20 @@ endif()
 # =============================================================================
 
 # v8_libbase -> system libraries + abseil
-set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
-  dbghelp winmm ws2_32
-  absl::flat_hash_map absl::flat_hash_set absl::strings absl::optional absl::btree
-)
-if(@V8_CONFIG_ENABLE_ETW@)
-  set_property(TARGET v8::v8_libbase APPEND PROPERTY
-    INTERFACE_LINK_LIBRARIES advapi32)
+if(WIN32)
+  set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
+    dbghelp winmm ws2_32
+    absl::flat_hash_map absl::flat_hash_set absl::strings absl::optional absl::btree
+  )
+  if(@V8_CONFIG_ENABLE_ETW@)
+    set_property(TARGET v8::v8_libbase APPEND PROPERTY
+      INTERFACE_LINK_LIBRARIES advapi32)
+  endif()
+else()
+  set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
+    pthread dl
+    absl::flat_hash_map absl::flat_hash_set absl::strings absl::optional absl::btree
+  )
 endif()
 
 # v8_libplatform -> v8_libbase
@@ -140,8 +147,13 @@ if(@V8_CONFIG_ENABLE_I18N@)
     _v8_add_lib(icudata)
     list(APPEND _v8_icu_libs v8::icudata)
   elseif(_v8_icudata_type STREQUAL "object")
-    if(EXISTS "${_V8_LIBDIR}/icudata.obj")
-      list(APPEND _v8_icu_libs "${_V8_LIBDIR}/icudata.obj")
+    if(WIN32)
+      set(_icudata_obj_name "icudata.obj")
+    else()
+      set(_icudata_obj_name "icudata.o")
+    endif()
+    if(EXISTS "${_V8_LIBDIR}/${_icudata_obj_name}")
+      list(APPEND _v8_icu_libs "${_V8_LIBDIR}/${_icudata_obj_name}")
     endif()
   endif()
 
