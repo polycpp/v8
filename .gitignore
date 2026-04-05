@@ -8,6 +8,7 @@ cmake-build-*/
 
 # Internal notes (not committed)
 internal/
+CLAUDE.md
 
 # IDE
 .vs/
