@@ -13,9 +13,11 @@ add_library(v8_zlib STATIC ${ZLIB_CORE_SOURCES})
 target_include_directories(v8_zlib PUBLIC "${ZLIB_ROOT}")
 target_compile_definitions(v8_zlib PRIVATE
   ZLIB_IMPLEMENTATION
-  X86_WINDOWS
   HAVE_STDARG_H
 )
+if(WIN32)
+  target_compile_definitions(v8_zlib PRIVATE X86_WINDOWS)
+endif()
 if(MSVC)
   target_compile_options(v8_zlib PRIVATE /wd4244 /wd4267 /wd4996)
 endif()
