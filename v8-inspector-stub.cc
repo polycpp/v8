@@ -66,7 +66,9 @@ class StubV8Inspector : public V8Inspector {
     return v8::MaybeLocal<v8::Context>();
   }
   V8DebuggerId uniqueDebuggerId(int) override { return V8DebuggerId(); }
+#if V8_MAJOR_VERSION >= 13
   uint64_t isolateId() override { return 0; }
+#endif
   void idleStarted() override {}
   void idleFinished() override {}
   void asyncTaskScheduled(StringView, void*, bool) override {}
