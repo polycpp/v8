@@ -61,9 +61,14 @@ if(V8_ENABLE_I18N)
       # IMPORTED target from generated .obj - install the file directly
       get_target_property(_icudata_loc icudata IMPORTED_LOCATION)
       if(_icudata_loc)
+        if(WIN32)
+          set(_icudata_ext "obj")
+        else()
+          set(_icudata_ext "o")
+        endif()
         install(FILES "${_icudata_loc}"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-          RENAME "icudata.obj"
+          RENAME "icudata.${_icudata_ext}"
         )
         set(V8_ICUDATA_INSTALLED_AS "object")
       endif()

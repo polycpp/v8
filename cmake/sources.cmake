@@ -1,5 +1,5 @@
 # =============================================================================
-# V8 source file lists for Windows x64 MSVC build
+# V8 source file lists for Windows x64 / Linux x64 build
 # Extracted from BUILD.gn (V8 11.3.244.8)
 # =============================================================================
 
@@ -50,10 +50,20 @@ v8_src(V8_LIBBASE_SOURCES
   src/base/virtual-address-space-page-allocator.cc
   src/base/virtual-address-space.cc
   src/base/vlq-base64.cc
-  # Windows-specific
-  src/base/debug/stack_trace_win.cc
-  src/base/platform/platform-win32.cc
 )
+if(WIN32)
+  list(APPEND V8_LIBBASE_SOURCES
+    "${V8_ROOT}/src/base/debug/stack_trace_win.cc"
+    "${V8_ROOT}/src/base/platform/platform-win32.cc"
+  )
+else()
+  list(APPEND V8_LIBBASE_SOURCES
+    "${V8_ROOT}/src/base/debug/stack_trace_posix.cc"
+    "${V8_ROOT}/src/base/platform/platform-posix.cc"
+    "${V8_ROOT}/src/base/platform/platform-posix-time.cc"
+    "${V8_ROOT}/src/base/platform/platform-linux.cc"
+  )
+endif()
 
 # =============================================================================
 # v8_libplatform sources
@@ -71,9 +81,10 @@ v8_src(V8_LIBPLATFORM_SOURCES
   src/libplatform/tracing/trace-writer.cc
   src/libplatform/tracing/tracing-controller.cc
   src/libplatform/worker-thread.cc
-  # Windows ETW recorder
-  src/libplatform/tracing/recorder-win.cc
 )
+if(WIN32)
+  list(APPEND V8_LIBPLATFORM_SOURCES "${V8_ROOT}/src/libplatform/tracing/recorder-win.cc")
+endif()
 
 # =============================================================================
 # v8_libsampler sources
@@ -111,10 +122,16 @@ v8_src(V8_HEAP_BASE_SOURCES
   src/heap/base/worklist.cc
 )
 
-# x64 Windows MASM assembly for push_registers
-set(V8_HEAP_BASE_ASM_SOURCES
-  "${V8_ROOT}/src/heap/base/asm/x64/push_registers_masm.asm"
-)
+# x64 assembly for push_registers
+if(WIN32)
+  set(V8_HEAP_BASE_ASM_SOURCES
+    "${V8_ROOT}/src/heap/base/asm/x64/push_registers_masm.asm"
+  )
+else()
+  set(V8_HEAP_BASE_ASM_SOURCES
+    "${V8_ROOT}/src/heap/base/asm/x64/push_registers_asm.cc"
+  )
+endif()
 
 # =============================================================================
 # cppgc_base sources
@@ -819,10 +836,11 @@ v8_src(V8_BASE_SOURCES
   src/diagnostics/x64/unwinder-x64.cc
   src/execution/x64/frame-constants-x64.cc
   src/regexp/x64/regexp-macro-assembler-x64.cc
-  # Windows x64 specific
-  src/diagnostics/unwinding-info-win64.cc
   # halfsiphash
 )
+if(WIN32)
+  list(APPEND V8_BASE_SOURCES "${V8_ROOT}/src/diagnostics/unwinding-info-win64.cc")
+endif()
 
 # Sparkplug sources (baseline compiler)
 v8_src(V8_SPARKPLUG_SOURCES
@@ -900,10 +918,18 @@ v8_src(V8_WASM_SOURCES
   src/wasm/wasm-serialization.cc
   src/wasm/wasm-subtyping.cc
   src/wasm/well-known-imports.cc
-  # Windows x64 trap handlers
-  src/trap-handler/handler-inside-win.cc
-  src/trap-handler/handler-outside-win.cc
 )
+if(WIN32)
+  list(APPEND V8_WASM_SOURCES
+    "${V8_ROOT}/src/trap-handler/handler-inside-win.cc"
+    "${V8_ROOT}/src/trap-handler/handler-outside-win.cc"
+  )
+else()
+  list(APPEND V8_WASM_SOURCES
+    "${V8_ROOT}/src/trap-handler/handler-inside-posix.cc"
+    "${V8_ROOT}/src/trap-handler/handler-outside-posix.cc"
+  )
+endif()
 
 # ETW diagnostics sources (Windows)
 v8_src(V8_ETW_SOURCES

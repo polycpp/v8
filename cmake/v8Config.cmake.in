@@ -15,9 +15,6 @@
 
 include(CMakeFindDependencyMacro)
 
-# Abseil is built and installed alongside V8
-find_dependency(absl REQUIRED)
-
 # =============================================================================
 # Locate installed directories
 # =============================================================================
@@ -80,14 +77,19 @@ endif()
 # Set up link dependency chain
 # =============================================================================
 
-# v8_libbase -> system libraries + abseil
-set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
-  dbghelp winmm ws2_32
-  absl::flat_hash_map absl::flat_hash_set absl::strings absl::optional absl::btree
-)
-if(@V8_CONFIG_ENABLE_ETW@)
-  set_property(TARGET v8::v8_libbase APPEND PROPERTY
-    INTERFACE_LINK_LIBRARIES advapi32)
+# v8_libbase -> system libraries
+if(WIN32)
+  set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
+    dbghelp winmm ws2_32
+  )
+  if(@V8_CONFIG_ENABLE_ETW@)
+    set_property(TARGET v8::v8_libbase APPEND PROPERTY
+      INTERFACE_LINK_LIBRARIES advapi32)
+  endif()
+else()
+  set_property(TARGET v8::v8_libbase PROPERTY INTERFACE_LINK_LIBRARIES
+    pthread dl
+  )
 endif()
 
 # v8_libplatform -> v8_libbase
@@ -140,8 +142,13 @@ if(@V8_CONFIG_ENABLE_I18N@)
     _v8_add_lib(icudata)
     list(APPEND _v8_icu_libs v8::icudata)
   elseif(_v8_icudata_type STREQUAL "object")
-    if(EXISTS "${_V8_LIBDIR}/icudata.obj")
-      list(APPEND _v8_icu_libs "${_V8_LIBDIR}/icudata.obj")
+    if(WIN32)
+      set(_v8_icudata_ext "obj")
+    else()
+      set(_v8_icudata_ext "o")
+    endif()
+    if(EXISTS "${_V8_LIBDIR}/icudata.${_v8_icudata_ext}")
+      list(APPEND _v8_icu_libs "${_V8_LIBDIR}/icudata.${_v8_icudata_ext}")
     endif()
   endif()
 
@@ -232,5 +239,6 @@ unset(_V8_INCDIR)
 unset(_v8_consumer_defs)
 unset(_v8_icu_libs)
 unset(_v8_icudata_type)
+unset(_v8_icudata_ext)
 
 check_required_components(v8)

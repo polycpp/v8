@@ -328,8 +328,11 @@ add_executable(torque
   ${V8_LIBBASE_SOURCES}
 )
 target_compile_definitions(torque PRIVATE V8_TORQUE_COMPILER _CRT_SECURE_NO_WARNINGS)
-target_link_libraries(torque PRIVATE dbghelp.lib winmm.lib ws2_32.lib)
-target_link_libraries(torque PRIVATE)
+if(WIN32)
+  target_link_libraries(torque PRIVATE dbghelp.lib winmm.lib ws2_32.lib)
+else()
+  target_link_libraries(torque PRIVATE pthread dl)
+endif()
 
 # =============================================================================
 # Build bytecode builtins list generator
