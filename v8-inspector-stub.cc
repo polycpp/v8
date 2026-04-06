@@ -2,6 +2,7 @@
 // This allows d8 to link without building the full inspector protocol.
 
 #include "include/v8-inspector.h"
+#include "include/v8-version.h"
 
 namespace v8_inspector {
 
@@ -95,11 +96,13 @@ class StubV8Inspector : public V8Inspector {
                                               SessionPauseState) override {
     return nullptr;
   }
+#if V8_MAJOR_VERSION >= 14
   std::shared_ptr<V8InspectorSession> connectShared(int, Channel*, StringView,
                                                     ClientTrustLevel,
                                                     SessionPauseState) override {
     return nullptr;
   }
+#endif
   std::unique_ptr<V8StackTrace> createStackTrace(
       v8::Local<v8::StackTrace>) override {
     return nullptr;
