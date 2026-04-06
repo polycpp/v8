@@ -1,0 +1,13 @@
+build/
+v8-src/
+internal/
+CLAUDE.md
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+*.sln
+*.vcxproj*
+.idea/
