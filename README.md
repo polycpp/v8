@@ -14,6 +14,7 @@ tested CMake build files. Pick a branch below and follow the instructions there.
 | [`v8-14.1.146.11`](../../tree/v8-14.1.146.11) | 14.1.146.11 | **v8_unittests 99.9%**, **mjsunit 97.6%** |
 | [`v8-13.6.233.17`](../../tree/v8-13.6.233.17) | 13.6.233.17 | **v8_unittests 99.8%**, **mjsunit 99.2%** |
 | [`v8-12.4.254.21`](../../tree/v8-12.4.254.21) | 12.4.254.21 | **v8_unittests 99.9%**, **mjsunit 98.6%** |
+| [`v8-11.3.244.8`](../../tree/v8-11.3.244.8) | 11.3.244.8 | **v8_unittests 99.9%**, **mjsunit 98.7%** |
 
 ## What You Get
 
