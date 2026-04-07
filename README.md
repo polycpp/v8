@@ -8,15 +8,15 @@ tested CMake build files. Pick a branch below and follow the instructions there.
 
 ## Available Versions
 
-| Branch | V8 Version | Platform | Status |
+| Branch | V8 Version | Platform | Status (Windows / Linux) |
 |--------|-----------|----------|--------|
-| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | Windows, Linux | **v8_unittests 99.88%**, **mjsunit 97.5%** |
-| [`v8-14.1.146.11`](../../tree/v8-14.1.146.11) | 14.1.146.11 | Windows, Linux | **v8_unittests 99.9%**, **mjsunit 97.6%** |
-| [`v8-13.6.233.17`](../../tree/v8-13.6.233.17) | 13.6.233.17 | Windows, Linux | **v8_unittests 99.8%**, **mjsunit 99.2%** |
-| [`v8-12.4.254.21`](../../tree/v8-12.4.254.21) | 12.4.254.21 | Windows, Linux | **v8_unittests 99.9%**, **mjsunit 98.6%** |
-| [`v8-11.3.244.8`](../../tree/v8-11.3.244.8) | 11.3.244.8 | Windows, Linux | **v8_unittests 99.9%**, **mjsunit 98.7%** |
-| [`v8-10.2.154.26`](../../tree/v8-10.2.154.26) | 10.2.154.26 | Windows | **v8_unittests 100.0%**, **mjsunit 98.2%** |
-| [`v8-9.4.146.26`](../../tree/v8-9.4.146.26) | 9.4.146.26 | Windows | **v8_unittests 100.0%**, **mjsunit 95.5%** |
+| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **97.5% / 82.9%** |
+| [`v8-14.1.146.11`](../../tree/v8-14.1.146.11) | 14.1.146.11 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **97.6% / 82.9%** |
+| [`v8-13.6.233.17`](../../tree/v8-13.6.233.17) | 13.6.233.17 | Windows, Linux | unittests **99.8% / 99.9%**, mjsunit **99.2% / 99.2%** |
+| [`v8-12.4.254.21`](../../tree/v8-12.4.254.21) | 12.4.254.21 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **98.6% / 98.6%** |
+| [`v8-11.3.244.8`](../../tree/v8-11.3.244.8) | 11.3.244.8 | Windows, Linux | unittests **99.9% / 100.0%**, mjsunit **98.7% / 98.6%** |
+| [`v8-10.2.154.26`](../../tree/v8-10.2.154.26) | 10.2.154.26 | Windows | unittests **100.0%**, mjsunit **98.2%** |
+| [`v8-9.4.146.26`](../../tree/v8-9.4.146.26) | 9.4.146.26 | Windows | unittests **100.0%**, mjsunit **95.5%** |
 
 ## What You Get
 
