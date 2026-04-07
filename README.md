@@ -7,11 +7,21 @@ Targets **V8 14.1.146.11** (Node.js v25).
 
 ## Test Results
 
+### Windows (MSVC 19.50)
+
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **6013/6018 (99.9%)** | 5 failures are platform-specific, not engine bugs |
 | mjsunit (JavaScript) | **965/989 (97.6%)** | 24 failures are Release-only flags, TZ diffs, etc. |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
+
+### Linux (GCC 13.3.0)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **6021/6025 (99.9%)** | 4 failures: LogAll, ConsoleTimeEvents, WeakMaps/Sets shrinking |
+| mjsunit (JavaScript) | **6585/7946 (82.9%)** | Most failures from flag conflicts and missing test helpers |
+| hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 
 ## Prerequisites
 

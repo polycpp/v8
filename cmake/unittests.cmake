@@ -48,6 +48,7 @@ if(WIN32)
   list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "posix-unittest")
 else()
   list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "win-unittest")
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "etw-")
 endif()
 
 # Exclude tests that need generated inspector protocol headers (not built yet)
