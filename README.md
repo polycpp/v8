@@ -7,12 +7,22 @@ Targets **V8 12.4.254.21** (Node.js v22 LTS "Jod").
 
 ## Test Results
 
+### Windows (MSVC 19.50)
+
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **5487/5490 (99.9%)** | 3 failures: weak collections shrinking, DiyFp |
 | mjsunit (JavaScript) | **6383/6475 (98.6%)** | 92 failures, 109 skipped (debug-only flags) |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
+
+### Linux (GCC 13.3.0)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5507/5511 (99.9%)** | 4 failures: LogAll, ConsoleTimeEvents, WeakMaps/Sets shrinking |
+| mjsunit (JavaScript) | **6383/6475 (98.6%)** | 92 failures, 109 skipped (debug-only flags) |
+| hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 
 ## Prerequisites
 

@@ -156,10 +156,8 @@ else()
     v8_bigint
     v8_cppgc
     v8_heap_base
-    v8_simdutf
     v8_zlib
     v8_zlib_google
-    v8_highway
     v8_abseil
     v8_torque_base_for_test
     icu_interface
@@ -167,6 +165,14 @@ else()
     gmock
     -Wl,--end-group
   )
+endif()
+
+# Conditionally link deps that may not exist in older V8 versions
+if(TARGET v8_simdutf)
+  target_link_libraries(v8_unittests PRIVATE v8_simdutf)
+endif()
+if(TARGET v8_highway)
+  target_link_libraries(v8_unittests PRIVATE v8_highway)
 endif()
 
 target_compile_definitions(v8_unittests PRIVATE
