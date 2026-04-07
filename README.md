@@ -7,11 +7,21 @@ Targets **V8 14.3.127.18**.
 
 ## Test Results
 
+### Windows (MSVC 19.50)
+
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **5728/5735 (99.88%)** | 7 failures are platform-specific, not engine bugs |
 | mjsunit (JavaScript) | **967/992 (97.5%)** | 25 failures are Release-only flags, TZ diffs, etc. |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
+
+### Linux (GCC 13.3.0)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5964/5970 (99.9%)** | 5 crashes (WeakMaps, LogAll, BytecodeGolden), 1 param test skip |
+| mjsunit (JavaScript) | **6757/8150 (82.9%)** | Most failures from flag conflicts and missing test helpers |
+| hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 
 See [docs/test-results.md](docs/test-results.md) for full results,
 [docs/unittest-analysis.md](docs/unittest-analysis.md) and
