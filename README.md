@@ -7,12 +7,22 @@ Targets **V8 13.6.233.17** (Node.js v24 LTS "Krypton").
 
 ## Test Results
 
+### Windows (MSVC 19.50)
+
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **5752/5764 (99.8%)** | 12 failures: conservative stack visitor, logging, weak collections |
 | mjsunit (JavaScript) | **7440/7502 (99.2%)** | 62 real failures, 156 skipped (debug-only flags) |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
+
+### Linux (GCC 13.3.0)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5764/5772 (99.9%)** | 8 failures: conservative stack visitor (4), LogAll, ConsoleTimeEvents, WeakMaps/Sets |
+| mjsunit (JavaScript) | **7442/7502 (99.2%)** | 60 failures, 156 skipped (debug-only flags) |
+| hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 
 ## Prerequisites
 
