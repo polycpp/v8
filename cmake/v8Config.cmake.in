@@ -59,8 +59,12 @@ _v8_add_lib(v8_base_without_compiler)
 _v8_add_lib(v8_initializers)
 _v8_add_lib(v8_init)
 _v8_add_lib(v8_snapshot)
-_v8_add_lib(v8_highway)
-_v8_add_lib(v8_simdutf)
+if(@V8_HAS_HIGHWAY@)
+  _v8_add_lib(v8_highway)
+endif()
+if(@V8_HAS_SIMDUTF@)
+  _v8_add_lib(v8_simdutf)
+endif()
 _v8_add_lib(v8_zlib)
 
 # v8_zlib_google: may be a real library or just an alias for v8_zlib
@@ -118,16 +122,22 @@ set_property(TARGET v8::v8_compiler PROPERTY
   INTERFACE_LINK_LIBRARIES v8::v8_libbase)
 
 # v8_base_without_compiler -> core dependencies
-set_property(TARGET v8::v8_base_without_compiler PROPERTY INTERFACE_LINK_LIBRARIES
+set(_v8_base_deps
   v8::v8_libbase
   v8::v8_bigint
   v8::v8_heap_base
   v8::v8_cppgc
-  v8::v8_highway
-  v8::v8_simdutf
   v8::v8_zlib_google
   v8::v8_libsampler
 )
+if(@V8_HAS_HIGHWAY@)
+  list(APPEND _v8_base_deps v8::v8_highway)
+endif()
+if(@V8_HAS_SIMDUTF@)
+  list(APPEND _v8_base_deps v8::v8_simdutf)
+endif()
+set_property(TARGET v8::v8_base_without_compiler PROPERTY
+  INTERFACE_LINK_LIBRARIES ${_v8_base_deps})
 
 # =============================================================================
 # ICU (internationalization) support

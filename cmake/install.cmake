@@ -31,9 +31,15 @@ set(_v8_install_targets
 )
 if(TARGET v8_highway)
   list(APPEND _v8_install_targets v8_highway)
+  set(V8_HAS_HIGHWAY TRUE)
+else()
+  set(V8_HAS_HIGHWAY FALSE)
 endif()
 if(TARGET v8_simdutf)
   list(APPEND _v8_install_targets v8_simdutf)
+  set(V8_HAS_SIMDUTF TRUE)
+else()
+  set(V8_HAS_SIMDUTF FALSE)
 endif()
 
 # v8_zlib_google may be STATIC or INTERFACE depending on source availability
@@ -48,7 +54,11 @@ endif()
 # ICU libraries
 set(V8_ICUDATA_INSTALLED_AS "none")
 if(V8_ENABLE_I18N)
-  list(APPEND _v8_install_targets icuuc icui18n)
+  # Only install ICU if built from source (not external/imported)
+  get_target_property(_icuuc_imported icuuc IMPORTED)
+  if(NOT _icuuc_imported)
+    list(APPEND _v8_install_targets icuuc icui18n)
+  endif()
 
   if(TARGET icudata)
     get_target_property(_icudata_type icudata TYPE)
