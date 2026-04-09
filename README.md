@@ -222,9 +222,9 @@ python test/run_unittests.py build/v8_unittests.exe --summary
 # Run specific suite
 python test/run_unittests.py build/v8_unittests.exe --suite "Bits"
 
-# JavaScript tests (must run from v8-src/ directory)
-cd v8-src
-python ../test/run_mjsunit.py ../build/d8.exe
+# JavaScript tests (full mjsunit tree)
+python test/run_mjsunit.py build/d8.exe --jobs 12 --timeout 30
+python test/run_mjsunit.py build/d8.exe --filter "wasm/" --jobs 12
 
 # Smoke test
 ./build/hello_v8.exe
@@ -246,7 +246,8 @@ of MSVC incompatibilities:
 
 ## Dependencies
 
-Fetched automatically by `fetch_deps.py`:
+Fetched automatically by `fetch_deps.py` and pinned to the exact commits from
+the upstream V8 `14.1.146.11` DEPS file:
 
 | Dependency | Purpose |
 |-----------|---------|
