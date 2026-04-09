@@ -11,9 +11,11 @@ Targets **V8 14.3.127.18**.
 
 | Suite | Result | Notes |
 |-------|--------|-------|
-| v8_unittests (C++) | **5728/5735 (99.88%)** | 7 failures are platform-specific, not engine bugs |
-| mjsunit (JavaScript) | **967/992 (97.5%)** | 25 failures are Release-only flags, TZ diffs, etc. |
+| v8_unittests (C++) | **5963/5968 (99.9%)** | 5 failures: 2 logging crashes, 2 WeakMaps/WeakSets shrink checks, 1 double edge-case |
+| mjsunit (JavaScript) | **7763/8150 (95.3%)** | 387 failures from flag conflicts, platform/TZ differences, unsupported experimental paths, and memory/timeouts |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
+
+Windows results above were collected on April 9, 2026 (MSVC 19.50, Release).
 
 ### Linux (GCC 13.3.0)
 
@@ -81,6 +83,7 @@ patches/
   001-msvc-compatibility.patch  # MSVC source compatibility fixes (~830 lines)
 test/
   run_mjsunit.py                # mjsunit JavaScript test runner
+  run_unittests.py              # one-test-per-process unittest runner
 docs/
   test-results.md               # Test results summary
   unittest-analysis.md          # C++ test failure root causes
@@ -105,7 +108,7 @@ fetch_deps.py                   # Fetches V8 source + third-party deps
 
 **Executables:**
 - **d8** — V8 developer shell (JS REPL, test runner)
-- **v8_unittests** — C++ unit test binary (5735 tests)
+- **v8_unittests** — C++ unit test binary (5968 tests)
 - **hello_v8** — Minimal V8 embedding smoke test
 
 **Build tools** (built automatically during the build):
@@ -250,19 +253,12 @@ ICU data is embedded directly into the binary — no runtime `icudtl.dat` file n
 
 ```bash
 # C++ unit tests
-./build/v8_unittests.exe --gtest_filter="BitsTest*"    # specific suite
-./build/v8_unittests.exe                                # all tests
+python test/run_unittests.py build/v8_unittests.exe --summary
+python test/run_unittests.py build/v8_unittests.exe --filter "BitsTest"
 
-# JavaScript tests (must run from v8-src/ directory)
-cd v8-src
-../build/d8.exe --test test/mjsunit/mjsunit.js test/mjsunit/array-length.js
-
-# Run all top-level mjsunit tests
-for f in test/mjsunit/*.js; do
-  FLAGS=$(grep "// Flags:" "$f" | sed 's|.*// Flags:||' | tr '\n' ' ')
-  FILES=$(grep "// Files:" "$f" | sed 's|.*// Files:||' | tr '\n' ' ')
-  timeout 30 ../build/d8.exe --test $FLAGS test/mjsunit/mjsunit.js $FILES "$f"
-done
+# JavaScript tests (full mjsunit tree)
+python test/run_mjsunit.py build/d8.exe --jobs 12 --timeout 30
+python test/run_mjsunit.py build/d8.exe --filter "wasm/" --jobs 12
 
 # Smoke test
 ./build/hello_v8.exe
@@ -284,7 +280,8 @@ of MSVC incompatibilities:
 
 ## Dependencies
 
-Fetched automatically by `fetch_deps.py`:
+Fetched automatically by `fetch_deps.py` and pinned to the exact commits from
+the upstream V8 `14.3.127.18` DEPS file:
 
 | Dependency | Purpose |
 |-----------|---------|

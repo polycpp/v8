@@ -69,9 +69,16 @@ def run_test(d8_path, test_path, mjsunit_js, v8_root, timeout):
 
     start = time.time()
     try:
+        # Run from the V8 root so test-relative load() paths like
+        # "test/mjsunit/..." resolve correctly.
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
-            cwd=os.path.dirname(d8_path)
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=timeout,
+            cwd=v8_root
         )
         duration = time.time() - start
         if result.returncode == 0:
