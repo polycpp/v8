@@ -90,7 +90,6 @@ set(V8_TORQUE_FILES
   src/builtins/promise-reaction-job.tq
   src/builtins/promise-resolve.tq
   src/builtins/promise-then.tq
-  src/builtins/promise-try.tq
   src/builtins/promise-withresolvers.tq
   src/builtins/proxy-constructor.tq
   src/builtins/proxy-delete-property.tq
@@ -176,7 +175,6 @@ set(V8_TORQUE_FILES
   src/objects/cell.tq
   src/objects/bytecode-array.tq
   src/objects/contexts.tq
-  src/objects/cpp-heap-external-object.tq
   src/objects/data-handler.tq
   src/objects/debug-objects.tq
   src/objects/descriptor-array.tq
@@ -193,7 +191,6 @@ set(V8_TORQUE_FILES
   src/objects/js-atomics-synchronization.tq
   src/objects/js-collection-iterator.tq
   src/objects/js-collection.tq
-  src/objects/js-disposable-stack.tq
   src/objects/js-function.tq
   src/objects/js-generator.tq
   src/objects/js-iterator-helpers.tq
@@ -206,6 +203,7 @@ set(V8_TORQUE_FILES
   src/objects/js-shadow-realm.tq
   src/objects/js-shared-array.tq
   src/objects/js-struct.tq
+  src/objects/js-temporal-objects.tq
   src/objects/js-weak-refs.tq
   src/objects/literal-objects.tq
   src/objects/map.tq
@@ -422,7 +420,9 @@ set(TORQUE_ALL_OUTPUTS
 set(TORQUE_SCRIPT "${CMAKE_BINARY_DIR}/run_torque.cmake")
 set(TORQUE_FILELIST "${CMAKE_BINARY_DIR}/torque_files.txt")
 
-# Write the file list (one per line, relative to V8_ROOT for torque)
+# Write the file list (one per line, relative to V8_ROOT for torque).
+# file(STRINGS ...) in run_torque.cmake strips line endings, so CRLF
+# on Windows is handled automatically.
 set(_tq_content "")
 foreach(_tq ${V8_TORQUE_FILES})
   string(APPEND _tq_content "${_tq}\n")

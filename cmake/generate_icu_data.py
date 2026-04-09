@@ -107,7 +107,17 @@ def main():
     with open(input_path, 'rb') as f:
         data = f.read()
 
-    create_coff_obj(data, 'icudt78_dat', output_path)
+    # Detect ICU version from the data file header.
+    # The ICU data file contains entries like "icudt73l/..." where 73 is the
+    # major version. The symbol name must match: icudtNN_dat.
+    import re
+    match = re.search(rb'icudt(\d+)', data)
+    if match:
+        icu_ver = match.group(1).decode('ascii')
+    else:
+        icu_ver = '73'  # fallback
+    symbol_name = f'icudt{icu_ver}_dat'
+    create_coff_obj(data, symbol_name, output_path)
 
 
 if __name__ == '__main__':

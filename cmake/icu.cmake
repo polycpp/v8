@@ -28,7 +28,10 @@ file(GLOB ICU_STUBDATA_SOURCES "${ICU_SOURCE}/stubdata/*.cpp")
 # =============================================================================
 # ICU common library
 # =============================================================================
+# ICU 73 has C++20 rewritten-operator== ambiguity (fmtable.cpp, Measure).
+# Compile ICU as C++17 to avoid this. V8 doesn't need C++20 from ICU.
 add_library(icuuc STATIC ${ICU_COMMON_SOURCES})
+set_target_properties(icuuc PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(icuuc
   PUBLIC "${ICU_SOURCE}/common"
   PRIVATE "${ICU_SOURCE}/i18n"
@@ -43,7 +46,8 @@ target_compile_definitions(icuuc PRIVATE
   UCONFIG_NO_FILTERED_BREAK_ITERATION=0
 )
 if(MSVC)
-  target_compile_options(icuuc PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996)
+  # /std:c++17 overrides the global /std:c++20 to avoid C2666 in fmtable.cpp
+  target_compile_options(icuuc PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996 /std:c++17)
 else()
   # GCC: -fpermissive needed for incomplete type in is_convertible_v template trait
   target_compile_options(icuuc PRIVATE -Wno-deprecated-declarations -Wno-unused-function -fpermissive)
@@ -53,6 +57,7 @@ endif()
 # ICU i18n library
 # =============================================================================
 add_library(icui18n STATIC ${ICU_I18N_SOURCES})
+set_target_properties(icui18n PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 target_include_directories(icui18n
   PUBLIC "${ICU_SOURCE}/i18n"
   PRIVATE "${ICU_SOURCE}/common"
@@ -67,7 +72,7 @@ target_compile_definitions(icui18n PRIVATE
 )
 target_link_libraries(icui18n PUBLIC icuuc)
 if(MSVC)
-  target_compile_options(icui18n PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996)
+  target_compile_options(icui18n PRIVATE /wd4005 /wd4068 /wd4244 /wd4267 /wd4996 /std:c++17)
 else()
   target_compile_options(icui18n PRIVATE -Wno-deprecated-declarations -Wno-unused-function -fpermissive)
 endif()
@@ -95,9 +100,22 @@ if(ICU_DATA_FILE)
       COMMENT "Generating embedded ICU data object from icudtl.dat (COFF)"
     )
     add_custom_target(icudata_generate DEPENDS "${ICU_DATA_OBJ}")
+    # Create a proper static library from the generated .obj by wrapping it
+    # with lib.exe. IMPORTED STATIC with a raw .obj doesn't work reliably
+    # with MSVC because CMake doesn't pass .obj files through transitive
+    # INTERFACE_LINK_LIBRARIES to the linker.
+    set(ICU_DATA_LIB "${CMAKE_BINARY_DIR}/gen/icudata.lib")
+    add_custom_command(
+      OUTPUT "${ICU_DATA_LIB}"
+      COMMAND lib /NOLOGO "/OUT:${ICU_DATA_LIB}" "${ICU_DATA_OBJ}"
+      DEPENDS "${ICU_DATA_OBJ}"
+      COMMENT "Creating icudata.lib from icudata.obj"
+    )
+    add_custom_target(icudata_lib_generate DEPENDS "${ICU_DATA_LIB}")
+    add_dependencies(icudata_lib_generate icudata_generate)
     add_library(icudata STATIC IMPORTED GLOBAL)
-    set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_OBJ}")
-    add_dependencies(icudata icudata_generate)
+    set_target_properties(icudata PROPERTIES IMPORTED_LOCATION "${ICU_DATA_LIB}")
+    add_dependencies(icudata icudata_lib_generate)
   else()
     # Linux: use a .S assembly file with .incbin to embed ICU data.
     # Detect ICU major version to get the correct symbol name (icudtNN_dat).

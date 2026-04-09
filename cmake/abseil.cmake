@@ -20,7 +20,8 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 if(MSVC)
   set(ABSL_MSVC_STATIC_RUNTIME ON CACHE BOOL "" FORCE)
 endif()
-# Enable abseil installation alongside V8
+# Enable abseil installation alongside V8.
+# Consumers use find_dependency(absl) via v8Config.cmake.
 set(ABSL_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${ABSEIL_ROOT}" "${CMAKE_BINARY_DIR}/abseil-cpp")

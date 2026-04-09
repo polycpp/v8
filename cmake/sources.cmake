@@ -24,7 +24,6 @@ v8_src(V8_LIBBASE_SOURCES
   src/base/division-by-constant.cc
   src/base/emulated-virtual-address-subspace.cc
   src/base/file-utils.cc
-  src/base/fpu.cc
   src/base/ieee754.cc
   src/base/logging.cc
   src/base/numbers/bignum-dtoa.cc
@@ -128,7 +127,6 @@ v8_src(V8_HEAP_BASE_SOURCES
   src/heap/base/incremental-marking-schedule.cc
   src/heap/base/memory-tagging.cc
   src/heap/base/stack.cc
-  src/heap/base/unsafe-json-emitter.cc
   src/heap/base/worklist.cc
 )
 
@@ -219,10 +217,8 @@ v8_src(V8_SIMDUTF_SOURCES
   third_party/simdutf/simdutf.cpp
 )
 
-# siphash
-v8_src(V8_SIPHASH_SOURCES
-  third_party/siphash/halfsiphash.cc
-)
+# siphash (conditionally used via V8_USE_SIPHASH; source may not be present)
+set(V8_SIPHASH_SOURCES "")
 
 # =============================================================================
 # v8_compiler sources (TurboFan + Turboshaft)
@@ -255,7 +251,6 @@ v8_src(V8_COMPILER_SOURCES
   src/compiler/common-node-cache.cc
   src/compiler/common-operator-reducer.cc
   src/compiler/common-operator.cc
-  src/compiler/common-utils.cc
   src/compiler/compilation-dependencies.cc
   src/compiler/compiler-source-position-table.cc
   src/compiler/constant-folding-reducer.cc
@@ -327,23 +322,11 @@ v8_src(V8_COMPILER_SOURCES
   src/compiler/state-values-utils.cc
   src/compiler/string-builder-optimizer.cc
   src/compiler/turbofan-enabled.cc
-  src/compiler/turbofan-graph-visualizer.cc
-  src/compiler/turbofan-graph.cc
-  src/compiler/turbofan-typer.cc
-  src/compiler/turbofan-types.cc
   src/compiler/turboshaft/analyzer-iterator.cc
   src/compiler/turboshaft/assembler.cc
-  src/compiler/turboshaft/block-instrumentation-phase.cc
-  src/compiler/turboshaft/block-instrumentation-reducer.cc
   src/compiler/turboshaft/build-graph-phase.cc
   src/compiler/turboshaft/code-elimination-and-simplification-phase.cc
   src/compiler/turboshaft/copying-phase.cc
-  src/compiler/turboshaft/csa-branch-elimination-phase.cc
-  src/compiler/turboshaft/csa-early-machine-optimization-phase.cc
-  src/compiler/turboshaft/csa-effects-computation.cc
-  src/compiler/turboshaft/csa-late-escape-analysis-phase.cc
-  src/compiler/turboshaft/csa-load-elimination-phase.cc
-  src/compiler/turboshaft/csa-memory-optimization-phase.cc
   src/compiler/turboshaft/debug-feature-lowering-phase.cc
   src/compiler/turboshaft/decompression-optimization-phase.cc
   src/compiler/turboshaft/decompression-optimization.cc
@@ -362,15 +345,11 @@ v8_src(V8_COMPILER_SOURCES
   src/compiler/turboshaft/operations.cc
   src/compiler/turboshaft/optimize-phase.cc
   src/compiler/turboshaft/phase.cc
-  src/compiler/turboshaft/pipelines.cc
   src/compiler/turboshaft/pretenuring-propagation-reducer.cc
   src/compiler/turboshaft/representations.cc
   src/compiler/turboshaft/sidetable.cc
   src/compiler/turboshaft/simplify-tf-loops.cc
   src/compiler/turboshaft/store-store-elimination-phase.cc
-  src/compiler/turboshaft/string-escape-analysis-reducer.cc
-  src/compiler/turboshaft/turbolev-frontend-pipeline.cc
-  src/compiler/turboshaft/turbolev-graph-builder.cc
   src/compiler/turboshaft/type-assertions-phase.cc
   src/compiler/turboshaft/type-parser.cc
   src/compiler/turboshaft/typed-optimizations-phase.cc
@@ -396,14 +375,10 @@ v8_src(V8_COMPILER_WASM_SOURCES
   src/compiler/int64-lowering.cc
   src/compiler/turboshaft/int64-lowering-phase.cc
   src/compiler/turboshaft/wasm-dead-code-elimination-phase.cc
-  src/compiler/turboshaft/wasm-debug-memory-lowering-phase.cc
   src/compiler/turboshaft/wasm-gc-optimize-phase.cc
   src/compiler/turboshaft/wasm-gc-typed-optimization-reducer.cc
-  src/compiler/turboshaft/wasm-in-js-inlining-phase.cc
   src/compiler/turboshaft/wasm-lowering-phase.cc
   src/compiler/turboshaft/wasm-optimize-phase.cc
-  src/compiler/turboshaft/wasm-shuffle-reducer.cc
-  src/compiler/turboshaft/wasm-simd-phase.cc
   src/compiler/turboshaft/wasm-turboshaft-compiler.cc
   src/compiler/wasm-address-reassociation.cc
   src/compiler/wasm-call-descriptors.cc
@@ -437,11 +412,9 @@ v8_src(V8_BASE_SOURCES
   src/baseline/baseline.cc
   src/baseline/bytecode-offset-iterator.cc
   src/builtins/accessors.cc
-  src/builtins/builtins-abstract-module-source.cc
   src/builtins/builtins-api.cc
   src/builtins/builtins-array.cc
   src/builtins/builtins-arraybuffer.cc
-  src/builtins/builtins-async-disposable-stack.cc
   src/builtins/builtins-async-module.cc
   src/builtins/builtins-atomics-synchronization.cc
   src/builtins/builtins-bigint.cc
@@ -450,8 +423,6 @@ v8_src(V8_BASE_SOURCES
   src/builtins/builtins-console.cc
   src/builtins/builtins-dataview.cc
   src/builtins/builtins-date.cc
-  src/builtins/builtins-disposable-stack.cc
-  src/builtins/builtins-effects-analyzer.cc
   src/builtins/builtins-error.cc
   src/builtins/builtins-function.cc
   src/builtins/builtins-global.cc
@@ -488,7 +459,6 @@ v8_src(V8_BASE_SOURCES
   src/codegen/flush-instruction-cache.cc
   src/codegen/handler-table.cc
   src/codegen/interface-descriptors.cc
-  src/codegen/jump-table-info.cc
   src/codegen/machine-type.cc
   src/codegen/macro-assembler-base.cc
   src/codegen/maglev-safepoint-table.cc
@@ -562,7 +532,6 @@ v8_src(V8_BASE_SOURCES
   src/extensions/statistics-extension.cc
   src/extensions/trigger-failure-extension.cc
   src/flags/flags.cc
-  src/flags/save-flags.cc
   src/handles/global-handles.cc
   src/handles/handles.cc
   src/handles/local-handles.cc
@@ -593,15 +562,12 @@ v8_src(V8_BASE_SOURCES
   src/heap/heap-allocator.cc
   src/heap/heap-controller.cc
   src/heap/heap-layout-tracer.cc
-  src/heap/heap-layout.cc
   src/heap/heap-verifier.cc
-  src/heap/heap-visitor.cc
   src/heap/heap-write-barrier.cc
   src/heap/heap.cc
   src/heap/incremental-marking-job.cc
   src/heap/incremental-marking.cc
   src/heap/index-generator.cc
-  src/heap/large-page-metadata.cc
   src/heap/large-spaces.cc
   src/heap/local-factory.cc
   src/heap/local-heap.cc
@@ -616,14 +582,11 @@ v8_src(V8_BASE_SOURCES
   src/heap/memory-chunk-metadata.cc
   src/heap/memory-chunk.cc
   src/heap/memory-measurement.cc
-  src/heap/memory-pool.cc
   src/heap/memory-reducer.cc
   src/heap/minor-gc-job.cc
   src/heap/minor-mark-sweep.cc
-  src/heap/mutable-page-metadata.cc
   src/heap/new-spaces.cc
   src/heap/object-stats.cc
-  src/heap/page-metadata.cc
   src/heap/paged-spaces.cc
   src/heap/pretenuring-handler.cc
   src/heap/read-only-heap.cc
@@ -637,7 +600,6 @@ v8_src(V8_BASE_SOURCES
   src/heap/sweeper.cc
   src/heap/traced-handles-marking-visitor.cc
   src/heap/trusted-range.cc
-  src/heap/visit-object.cc
   src/heap/weak-object-worklists.cc
   src/heap/zapping.cc
   src/ic/call-optimization.cc
@@ -647,7 +609,6 @@ v8_src(V8_BASE_SOURCES
   src/ic/stub-cache.cc
   src/init/bootstrapper.cc
   src/init/icu_util.cc
-  src/init/isolate-group.cc
   src/init/startup-data-util.cc
   src/init/v8.cc
   src/interpreter/bytecode-array-builder.cc
@@ -655,7 +616,6 @@ v8_src(V8_BASE_SOURCES
   src/interpreter/bytecode-array-random-iterator.cc
   src/interpreter/bytecode-array-writer.cc
   src/interpreter/bytecode-decoder.cc
-  src/interpreter/bytecode-flags-and-tokens.cc
   src/interpreter/bytecode-generator.cc
   src/interpreter/bytecode-label.cc
   src/interpreter/bytecode-node.cc
@@ -669,7 +629,6 @@ v8_src(V8_BASE_SOURCES
   src/interpreter/handler-table-builder.cc
   src/interpreter/interpreter-intrinsics.cc
   src/interpreter/interpreter.cc
-  src/interpreter/prototype-assignment-sequence-builder.cc
   src/json/json-parser.cc
   src/json/json-stringifier.cc
   src/logging/counters.cc
@@ -680,7 +639,6 @@ v8_src(V8_BASE_SOURCES
   src/logging/runtime-call-stats.cc
   src/logging/tracing-flags.cc
   src/numbers/conversions.cc
-  src/numbers/ieee754.cc
   src/numbers/math-random.cc
   src/objects/abstract-code.cc
   src/objects/backing-store.cc
@@ -708,7 +666,6 @@ v8_src(V8_BASE_SOURCES
   src/objects/js-collator.cc
   src/objects/js-date-time-format.cc
   src/objects/js-display-names.cc
-  src/objects/js-disposable-stack.cc
   src/objects/js-duration-format.cc
   src/objects/js-function.cc
   src/objects/js-list-format.cc
@@ -723,8 +680,6 @@ v8_src(V8_BASE_SOURCES
   src/objects/js-segmenter.cc
   src/objects/js-segments.cc
   src/objects/js-struct.cc
-  src/objects/js-temporal-helpers.cc
-  src/objects/js-weak-refs.cc
   src/objects/keys.cc
   src/objects/literal-objects.cc
   src/objects/lookup-cache.cc
@@ -733,7 +688,6 @@ v8_src(V8_BASE_SOURCES
   src/objects/map-updater.cc
   src/objects/map.cc
   src/objects/module.cc
-  src/objects/number-string-cache.cc
   src/objects/object-type.cc
   src/objects/objects.cc
   src/objects/option-utils.cc
@@ -742,7 +696,6 @@ v8_src(V8_BASE_SOURCES
   src/objects/property.cc
   src/objects/regexp-match-info.cc
   src/objects/scope-info.cc
-  src/objects/script.cc
   src/objects/shared-function-info.cc
   src/objects/simd.cc
   src/objects/source-text-module.cc
@@ -760,9 +713,7 @@ v8_src(V8_BASE_SOURCES
   src/objects/type-hints.cc
   src/objects/value-serializer.cc
   src/objects/visitors.cc
-  src/objects/waiter-queue-node.cc
   src/parsing/func-name-inferrer.cc
-  src/parsing/import-attributes.cc
   src/parsing/literal-buffer.cc
   src/parsing/parse-info.cc
   src/parsing/parser.cc
@@ -793,10 +744,8 @@ v8_src(V8_BASE_SOURCES
   src/regexp/experimental/experimental.cc
   src/regexp/regexp-ast.cc
   src/regexp/regexp-bytecode-generator.cc
-  src/regexp/regexp-bytecode-iterator.cc
   src/regexp/regexp-bytecode-peephole.cc
   src/regexp/regexp-bytecodes.cc
-  src/regexp/regexp-code-generator.cc
   src/regexp/regexp-compiler-tonode.cc
   src/regexp/regexp-compiler.cc
   src/regexp/regexp-dotprinter.cc
@@ -805,7 +754,6 @@ v8_src(V8_BASE_SOURCES
   src/regexp/regexp-macro-assembler-tracer.cc
   src/regexp/regexp-macro-assembler.cc
   src/regexp/regexp-parser.cc
-  src/regexp/regexp-result-vector.cc
   src/regexp/regexp-stack.cc
   src/regexp/regexp-utils.cc
   src/regexp/regexp.cc
@@ -842,13 +790,9 @@ v8_src(V8_BASE_SOURCES
   src/runtime/runtime-weak-refs.cc
   src/runtime/runtime.cc
   src/sandbox/code-pointer-table.cc
-  src/sandbox/cppheap-pointer-table.cc
   src/sandbox/external-pointer-table.cc
-  src/sandbox/hardware-support.cc
-  src/sandbox/js-dispatch-table.cc
   src/sandbox/sandbox.cc
   src/sandbox/testing.cc
-  src/sandbox/trusted-pointer-scope.cc
   src/sandbox/trusted-pointer-table.cc
   src/snapshot/code-serializer.cc
   src/snapshot/context-deserializer.cc
@@ -874,7 +818,6 @@ v8_src(V8_BASE_SOURCES
   src/strings/char-predicates.cc
   src/strings/string-builder.cc
   src/strings/string-case.cc
-  src/strings/string-hasher.cc
   src/strings/string-stream.cc
   src/strings/unicode-decoder.cc
   src/strings/unicode.cc
@@ -893,7 +836,6 @@ v8_src(V8_BASE_SOURCES
   src/utils/identity-map.cc
   src/utils/memcopy.cc
   src/utils/ostreams.cc
-  src/utils/output-stream.cc
   src/utils/sha-256.cc
   src/utils/utils.cc
   src/utils/version.cc
@@ -912,8 +854,6 @@ v8_src(V8_BASE_SOURCES
   src/diagnostics/x64/unwinder-x64.cc
   src/execution/x64/frame-constants-x64.cc
   src/regexp/x64/regexp-macro-assembler-x64.cc
-  # halfsiphash
-  third_party/siphash/halfsiphash.cc
 )
 
 # Windows-specific v8_base source
@@ -936,18 +876,12 @@ v8_src(V8_MAGLEV_SOURCES
   src/maglev/maglev-compiler.cc
   src/maglev/maglev-concurrent-dispatcher.cc
   src/maglev/maglev-graph-builder.cc
-  src/maglev/maglev-graph-labeller.cc
-  src/maglev/maglev-graph-optimizer.cc
   src/maglev/maglev-graph-printer.cc
-  src/maglev/maglev-graph.cc
-  src/maglev/maglev-inlining.cc
   src/maglev/maglev-interpreter-frame-state.cc
   src/maglev/maglev-ir.cc
-  src/maglev/maglev-known-node-aspects.cc
   src/maglev/maglev-phi-representation-selector.cc
   src/maglev/maglev-pipeline-statistics.cc
   src/maglev/maglev-regalloc.cc
-  src/maglev/maglev-truncation.cc
   src/maglev/maglev.cc
   # x64
   src/maglev/x64/maglev-assembler-x64.cc
@@ -970,7 +904,6 @@ v8_src(V8_WASM_SOURCES
   src/wasm/baseline/liftoff-assembler.cc
   src/wasm/baseline/liftoff-compiler.cc
   src/wasm/baseline/parallel-move.cc
-  src/wasm/basic-block-calculator.cc
   src/wasm/canonical-types.cc
   src/wasm/code-space-access.cc
   src/wasm/constant-expression-interface.cc
@@ -990,12 +923,9 @@ v8_src(V8_WASM_SOURCES
   src/wasm/sync-streaming-decoder.cc
   src/wasm/value-type.cc
   src/wasm/wasm-code-manager.cc
-  src/wasm/wasm-code-pointer-table.cc
   src/wasm/wasm-debug.cc
-  src/wasm/wasm-deopt-data.cc
   src/wasm/wasm-disassembler.cc
   src/wasm/wasm-engine.cc
-  src/wasm/wasm-export-wrapper-cache.cc
   src/wasm/wasm-external-refs.cc
   src/wasm/wasm-features.cc
   src/wasm/wasm-import-wrapper-cache.cc
@@ -1008,7 +938,6 @@ v8_src(V8_WASM_SOURCES
   src/wasm/wasm-result.cc
   src/wasm/wasm-serialization.cc
   src/wasm/wasm-subtyping.cc
-  src/wasm/wasm-tracing.cc
   src/wasm/well-known-imports.cc
 )
 
@@ -1027,11 +956,6 @@ endif()
 
 # ETW diagnostics sources (Windows)
 v8_src(V8_ETW_SOURCES
-  src/diagnostics/etw-debug-win.cc
-  src/diagnostics/etw-isolate-capture-state-monitor-win.cc
-  src/diagnostics/etw-isolate-load-script-data-win.cc
-  src/diagnostics/etw-isolate-operations-win.cc
-  src/diagnostics/etw-jit-metadata-win.cc
   src/diagnostics/etw-jit-win.cc
 )
 
@@ -1060,7 +984,6 @@ v8_src(V8_INITIALIZERS_SOURCES
   src/builtins/builtins-iterator-gen.cc
   src/builtins/builtins-microtask-queue-gen.cc
   src/builtins/builtins-number-gen.cc
-  src/builtins/builtins-number-tsa.cc
   src/builtins/builtins-object-gen.cc
   src/builtins/builtins-promise-gen.cc
   src/builtins/builtins-proxy-gen.cc
@@ -1068,21 +991,17 @@ v8_src(V8_INITIALIZERS_SOURCES
   src/builtins/builtins-shadow-realm-gen.cc
   src/builtins/builtins-sharedarraybuffer-gen.cc
   src/builtins/builtins-string-gen.cc
-  src/builtins/builtins-string-tsa.cc
   src/builtins/builtins-typed-array-gen.cc
   src/builtins/growable-fixed-array-gen.cc
-  src/builtins/js-trampoline-assembler.cc
   src/builtins/profile-data-reader.cc
   src/builtins/setup-builtins-internal.cc
   src/codegen/code-stub-assembler.cc
-  src/compiler/turboshaft/builtin-compiler.cc
   src/heap/setup-heap-internal.cc
   src/ic/accessor-assembler.cc
   src/ic/binary-op-assembler.cc
   src/ic/keyed-store-generic.cc
   src/ic/unary-op-assembler.cc
   src/interpreter/interpreter-assembler.cc
-  src/interpreter/interpreter-generator-tsa.cc
   src/interpreter/interpreter-generator.cc
   src/interpreter/interpreter-intrinsics-generator.cc
   # x64 builtins
@@ -1132,7 +1051,6 @@ v8_src(V8_TORQUE_SOURCES
 # mksnapshot sources
 # =============================================================================
 v8_src(V8_MKSNAPSHOT_SOURCES
-  src/snapshot/builtins-effects-dummy.cc
   src/snapshot/embedded/embedded-empty.cc
   src/snapshot/embedded/embedded-file-writer.cc
   src/snapshot/embedded/platform-embedded-file-writer-aix.cc
@@ -1140,7 +1058,6 @@ v8_src(V8_MKSNAPSHOT_SOURCES
   src/snapshot/embedded/platform-embedded-file-writer-generic.cc
   src/snapshot/embedded/platform-embedded-file-writer-mac.cc
   src/snapshot/embedded/platform-embedded-file-writer-win.cc
-  src/snapshot/embedded/platform-embedded-file-writer-zos.cc
   src/snapshot/mksnapshot.cc
   src/snapshot/snapshot-empty.cc
   src/snapshot/static-roots-gen.cc
