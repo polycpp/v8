@@ -1,102 +1,11 @@
-diff --git a/include/cppgc/internal/caged-heap-local-data.h b/include/cppgc/internal/caged-heap-local-data.h
-index a27649c..d4083e4 100644
---- a/include/cppgc/internal/caged-heap-local-data.h
-+++ b/include/cppgc/internal/caged-heap-local-data.h
-@@ -48,8 +48,18 @@ class AgeTable final {
- 
-  private:
-   V8_INLINE size_t card(uintptr_t offset) const {
-+#ifdef _MSC_VER
-+    // MSVC doesn't have __builtin_ctz; kCardSizeInBytes is a power of 2,
-+    // so we can compute ctz at compile time with a constexpr helper.
-+    constexpr size_t kGranularityBits = [] {
-+      size_t v = kCardSizeInBytes, r = 0;
-+      while ((v & 1) == 0) { v >>= 1; ++r; }
-+      return r;
-+    }();
-+#else
-     constexpr size_t kGranularityBits =
-         __builtin_ctz(static_cast<uint32_t>(kCardSizeInBytes));
-+#endif
-     const size_t entry = offset >> kGranularityBits;
-     CPPGC_DCHECK(table_.size() > entry);
-     return entry;
-diff --git a/src/execution/isolate-data.h b/src/execution/isolate-data.h
-index 671492b..747621c 100644
---- a/src/execution/isolate-data.h
-+++ b/src/execution/isolate-data.h
-@@ -248,7 +248,13 @@ void IsolateData::AssertPredictableLayout() {
-   STATIC_ASSERT(offsetof(IsolateData, Name##_) == Offset);
-   ISOLATE_DATA_FIELDS(V)
- #undef V
-+#ifdef _MSC_VER
-+  // MSVC [[msvc::no_unique_address]] may not eliminate empty padding members
-+  // in all configurations. Relax this check on MSVC.
-+  STATIC_ASSERT(sizeof(IsolateData) >= IsolateData::kSize);
-+#else
-   STATIC_ASSERT(sizeof(IsolateData) == IsolateData::kSize);
-+#endif
- }
- 
- #undef ISOLATE_DATA_FIELDS_SANDBOXED_EXTERNAL_POINTERS
-diff --git a/src/heap/cppgc/marking-state.h b/src/heap/cppgc/marking-state.h
-index b550d4e..7c9b44f 100644
---- a/src/heap/cppgc/marking-state.h
-+++ b/src/heap/cppgc/marking-state.h
-@@ -360,7 +360,7 @@ class MutatorMarkingState : public BasicMarkingState {
-       : BasicMarkingState(heap, marking_worklists, compaction_worklists) {}
- 
-   inline bool MarkNoPush(HeapObjectHeader& header) {
--    return MutatorMarkingState::BasicMarkingState::MarkNoPush(header);
-+    return BasicMarkingState::MarkNoPush(header);
-   }
- 
-   inline void ReTraceMarkedWeakContainer(cppgc::Visitor&, HeapObjectHeader&);
-diff --git a/src/runtime/runtime-test.cc b/src/runtime/runtime-test.cc
-index fcaada5..8c70649 100644
---- a/src/runtime/runtime-test.cc
-+++ b/src/runtime/runtime-test.cc
-@@ -916,8 +916,8 @@ RUNTIME_FUNCTION(Runtime_SetAllocationTimeout) {
- namespace {
- 
- int FixedArrayLenFromSize(int size) {
--  return std::min({(size - FixedArray::kHeaderSize) / kTaggedSize,
--                   FixedArray::kMaxRegularLength});
-+  return std::min(static_cast<int>((size - FixedArray::kHeaderSize) / kTaggedSize),
-+                   static_cast<int>(FixedArray::kMaxRegularLength));
- }
- 
- void FillUpOneNewSpacePage(Isolate* isolate, Heap* heap) {
-diff --git a/test/unittests/heap/cppgc/source-location-unittest.cc b/test/unittests/heap/cppgc/source-location-unittest.cc
-index b477dc1..a4a6817 100644
---- a/test/unittests/heap/cppgc/source-location-unittest.cc
-+++ b/test/unittests/heap/cppgc/source-location-unittest.cc
-@@ -45,12 +45,13 @@ void TestSourceLocationCurrent() {
- TEST(SourceLocationTest, Current) { TestSourceLocationCurrent(); }
- 
- void TestToString() {
--  static const std::string kDescriptor = std::string(__func__) + "@" +
--                                         __FILE__ + ":" +
--                                         std::to_string(__LINE__ + 1);
-   constexpr auto loc = SourceLocation::Current();
-   const auto string = loc.ToString();
--  EXPECT_EQ(kDescriptor, string);
-+  // MSVC __FUNCSIG__ includes __cdecl and explicit (void); also uses
-+  // backslashes in __FILE__. Just check that the string contains the
-+  // function name and file name rather than exact-matching.
-+  EXPECT_NE(std::string::npos, string.find("TestToString"));
-+  EXPECT_NE(std::string::npos, string.find("source-location-unittest.cc"));
- }
- 
- #if CPPGC_SUPPORTS_SOURCE_LOCATION
 diff --git a/base/trace_event/common/trace_event_common.h b/base/trace_event/common/trace_event_common.h
 new file mode 100644
-index 0000000..795ea11
+index 00000000..f30da2ca
 --- /dev/null
 +++ b/base/trace_event/common/trace_event_common.h
 @@ -0,0 +1,109 @@
 +// Copyright 2015 The Chromium Authors. All rights reserved.
-+// Stub for V8 MSVC builds — provides trace event constants normally
++// Stub for V8 MSVC builds -- provides trace event constants normally
 +// supplied by the Chromium base library.
 +
 +#ifndef BASE_TRACE_EVENT_COMMON_TRACE_EVENT_COMMON_H_
@@ -204,9 +113,53 @@ index 0000000..795ea11
 +#define TRACE_EVENT_CALL_STATS_SCOPED(isolate, category, name) ((void)0)
 +
 +#endif  // BASE_TRACE_EVENT_COMMON_TRACE_EVENT_COMMON_H_
+diff --git a/include/cppgc/internal/caged-heap-local-data.h b/include/cppgc/internal/caged-heap-local-data.h
+index a27649c1..243e01e0 100644
+--- a/include/cppgc/internal/caged-heap-local-data.h
++++ b/include/cppgc/internal/caged-heap-local-data.h
+@@ -48,8 +48,21 @@ class AgeTable final {
+ 
+  private:
+   V8_INLINE size_t card(uintptr_t offset) const {
++#ifdef _MSC_VER
++    // MSVC doesn't have __builtin_ctz; kCardSizeInBytes is a power of 2,
++    // so compute ctz at compile time with a constexpr helper.
++    constexpr size_t kGranularityBits = [] {
++      size_t v = kCardSizeInBytes, r = 0;
++      while ((v & 1) == 0) {
++        v >>= 1;
++        ++r;
++      }
++      return r;
++    }();
++#else
+     constexpr size_t kGranularityBits =
+         __builtin_ctz(static_cast<uint32_t>(kCardSizeInBytes));
++#endif
+     const size_t entry = offset >> kGranularityBits;
+     CPPGC_DCHECK(table_.size() > entry);
+     return entry;
+diff --git a/src/execution/isolate-data.h b/src/execution/isolate-data.h
+index 671492bb..ce446346 100644
+--- a/src/execution/isolate-data.h
++++ b/src/execution/isolate-data.h
+@@ -248,7 +248,13 @@ void IsolateData::AssertPredictableLayout() {
+   STATIC_ASSERT(offsetof(IsolateData, Name##_) == Offset);
+   ISOLATE_DATA_FIELDS(V)
+ #undef V
++#ifdef _MSC_VER
++  // MSVC [[msvc::no_unique_address]] may keep empty padding members in some
++  // configurations. Relax exact size equality on MSVC.
++  STATIC_ASSERT(sizeof(IsolateData) >= IsolateData::kSize);
++#else
+   STATIC_ASSERT(sizeof(IsolateData) == IsolateData::kSize);
++#endif
+ }
+ 
+ #undef ISOLATE_DATA_FIELDS_SANDBOXED_EXTERNAL_POINTERS
 diff --git a/src/heap/base/asm/x64/push_registers_masm.asm b/src/heap/base/asm/x64/push_registers_masm.asm
 new file mode 100644
-index 0000000..a32e193
+index 00000000..a32e193c
 --- /dev/null
 +++ b/src/heap/base/asm/x64/push_registers_masm.asm
 @@ -0,0 +1,57 @@
@@ -267,9 +220,22 @@ index 0000000..a32e193
 +    ret
 +
 +end
+diff --git a/src/heap/cppgc/marking-state.h b/src/heap/cppgc/marking-state.h
+index b550d4e3..7c9b44fc 100644
+--- a/src/heap/cppgc/marking-state.h
++++ b/src/heap/cppgc/marking-state.h
+@@ -360,7 +360,7 @@ class MutatorMarkingState : public BasicMarkingState {
+       : BasicMarkingState(heap, marking_worklists, compaction_worklists) {}
+ 
+   inline bool MarkNoPush(HeapObjectHeader& header) {
+-    return MutatorMarkingState::BasicMarkingState::MarkNoPush(header);
++    return BasicMarkingState::MarkNoPush(header);
+   }
+ 
+   inline void ReTraceMarkedWeakContainer(cppgc::Visitor&, HeapObjectHeader&);
 diff --git a/src/inspector/v8-inspector-stub.cc b/src/inspector/v8-inspector-stub.cc
 new file mode 100644
-index 0000000..e544461
+index 00000000..e5444616
 --- /dev/null
 +++ b/src/inspector/v8-inspector-stub.cc
 @@ -0,0 +1,224 @@
@@ -497,9 +463,24 @@ index 0000000..e544461
 +}
 +
 +}  // namespace v8_inspector
+diff --git a/src/runtime/runtime-test.cc b/src/runtime/runtime-test.cc
+index fcaada57..fcd2751b 100644
+--- a/src/runtime/runtime-test.cc
++++ b/src/runtime/runtime-test.cc
+@@ -916,8 +916,8 @@ RUNTIME_FUNCTION(Runtime_SetAllocationTimeout) {
+ namespace {
+ 
+ int FixedArrayLenFromSize(int size) {
+-  return std::min({(size - FixedArray::kHeaderSize) / kTaggedSize,
+-                   FixedArray::kMaxRegularLength});
++  return std::min(static_cast<int>((size - FixedArray::kHeaderSize) / kTaggedSize),
++                  static_cast<int>(FixedArray::kMaxRegularLength));
+ }
+ 
+ void FillUpOneNewSpacePage(Isolate* isolate, Heap* heap) {
 diff --git a/src/wasm/fuzzing/random-module-generation-stub.cc b/src/wasm/fuzzing/random-module-generation-stub.cc
 new file mode 100644
-index 0000000..9c8758b
+index 00000000..9c8758b9
 --- /dev/null
 +++ b/src/wasm/fuzzing/random-module-generation-stub.cc
 @@ -0,0 +1,31 @@
@@ -534,3 +515,25 @@ index 0000000..9c8758b
 +}
 +
 +}  // namespace v8::internal::wasm::fuzzing
+diff --git a/test/unittests/heap/cppgc/source-location-unittest.cc b/test/unittests/heap/cppgc/source-location-unittest.cc
+index b477dc16..38ac3594 100644
+--- a/test/unittests/heap/cppgc/source-location-unittest.cc
++++ b/test/unittests/heap/cppgc/source-location-unittest.cc
+@@ -45,12 +45,13 @@ void TestSourceLocationCurrent() {
+ TEST(SourceLocationTest, Current) { TestSourceLocationCurrent(); }
+ 
+ void TestToString() {
+-  static const std::string kDescriptor = std::string(__func__) + "@" +
+-                                         __FILE__ + ":" +
+-                                         std::to_string(__LINE__ + 1);
+   constexpr auto loc = SourceLocation::Current();
+   const auto string = loc.ToString();
+-  EXPECT_EQ(kDescriptor, string);
++  // MSVC __FUNCSIG__ includes __cdecl and explicit (void); also uses
++  // backslashes in __FILE__. Check for stable substrings instead of exact
++  // string equality.
++  EXPECT_NE(std::string::npos, string.find("TestToString"));
++  EXPECT_NE(std::string::npos, string.find("source-location-unittest.cc"));
+ }
+ 
+ #if CPPGC_SUPPORTS_SOURCE_LOCATION

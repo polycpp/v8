@@ -10,7 +10,7 @@ Targets **V8 10.2.154.26** (Node.js v18 "Hydrogen").
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **3901/3902 (100.0%)** | 1 failure: VirtualAddressSpaceTest |
-| mjsunit (JavaScript) | **5457/5557 (98.2%)** | 100 failures, 97 skipped (debug-only flags) |
+| mjsunit (JavaScript) | **5455/5557 (98.2%)** | 102 failures, 97 skipped (debug-only flags) |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
 
