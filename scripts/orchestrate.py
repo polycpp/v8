@@ -207,7 +207,7 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"V8 MSVC CMake Build — Adding V8 {args.version}")
+    print(f"V8 MSVC CMake Build -- Adding V8 {args.version}")
     if args.node_version:
         print(f"  Node.js: {args.node_version}")
     print(f"  Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")

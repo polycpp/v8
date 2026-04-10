@@ -1,7 +1,7 @@
-# V8 MSVC Build — Dev Branch
+# V8 MSVC Build -- Dev Branch
 
 Tooling, scripts, and agent prompts for adding MSVC CMake build support
-for new V8 versions. This branch is NOT for building V8 — see the version
+for new V8 versions. This branch is NOT for building V8 -- see the version
 branches (e.g., `v8-14.3.127.18`) for that.
 
 ## What's Here
@@ -10,10 +10,10 @@ branches (e.g., `v8-14.3.127.18`) for that.
 scripts/           Automation scripts
   orchestrate.py     Master "add new version" pipeline
   parse_gn.py        GN (BUILD.gn) file parser
-  generate_sources.py    BUILD.gn → cmake/sources.cmake
+  generate_sources.py    BUILD.gn -> cmake/sources.cmake
   generate_torque_list.py  Extract .tq file lists
-  generate_fetch_deps.py   V8 DEPS → fetch_deps.py
-  detect_features.py       Source tree → feature manifest
+  generate_fetch_deps.py   V8 DEPS -> fetch_deps.py (pinned checkout enforcement)
+  detect_features.py       Source tree -> feature manifest
 
 prompts/           Agent prompt files
   coordinator.md     Top-level coordinator prompt

@@ -24,7 +24,7 @@ You will be given:
 
 ## Branch Strategy
 
-Version branches are **orphan branches** — they have no shared git history with
+Version branches are **orphan branches** -- they have no shared git history with
 `dev` or other version branches. Each contains only the build files for that
 specific V8 version. Do NOT create version branches by forking from `dev`.
 
@@ -51,7 +51,7 @@ and adapting is far more effective than generating from scratch. The GN parser
 handles ~80% of cases but the reference branch gets you to ~95%.
 
 1. Copy all cmake/ files from `REFERENCE_BRANCH` (e.g., `git show v8-14.3:cmake/sources.cmake`)
-2. Run source diff check — find files in sources.cmake that don't exist on disk:
+2. Run source diff check -- find files in sources.cmake that don't exist on disk:
    ```python
    missing = [f for f in cmake_files if not os.path.exists(f'v8-src/{f}')]
    ```
@@ -60,7 +60,7 @@ handles ~80% of cases but the reference branch gets you to ~95%.
 5. Verify all .tq files in torque.cmake exist on disk
 6. Update version numbers in CMakeLists.txt
 7. Check highway source location: `src/hwy/` vs `third_party/highway/src/hwy/`
-8. **Review**: Total file count should be reasonable (±50 from reference)
+8. **Review**: Total file count should be reasonable (+/-50 from reference)
 
 ### Phase 2.5: MSVC Patch Porting
 
@@ -70,13 +70,16 @@ Before attempting the first build, port the MSVC patch from the reference branch
 2. Test: `cd v8-src && git apply --check ../patches/001-msvc-compatibility.patch`
 3. If some hunks fail, use `git apply --exclude=<failing-file>` to apply the rest
 4. Manually fix excluded files by reading the patch hunks and adapting to new source
-5. Regenerate patch: `cd v8-src && git diff > ../patches/001-msvc-compatibility.patch`
-6. Also regenerate the inspector stub (`src/inspector/v8-inspector-stub.cc`) by reading
+5. Regenerate patch with explicit paths and binary-safe output:
+   `cd v8-src && git diff --binary HEAD -- <patched-paths...> > ../patches/001-msvc-compatibility.patch`
+6. Validate regenerated patch:
+   `cd v8-src && git apply --reverse --check ../patches/001-msvc-compatibility.patch`
+7. Also regenerate the inspector stub (`src/inspector/v8-inspector-stub.cc`) by reading
    `include/v8-inspector.h` for the current version's pure virtual methods
 
 ### Phase 3: Build Iteration (the core loop)
 
-**Build with `-j 4` or `-j 8`** — MSVC runs out of heap on V8 compiler files with higher parallelism.
+**Build with `-j 4` or `-j 8`** -- MSVC runs out of heap on V8 compiler files with higher parallelism.
 
 ```
 while build fails:
@@ -84,10 +87,10 @@ while build fails:
     2. Capture errors (first 50 lines of errors)
     3. Categorize errors using prompts/sub/error_analysis.md
     4. For each error category:
-       - Missing source files → fix sources.cmake
-       - Missing definitions → fix CMakeLists.txt
-       - MSVC code issues → create/extend patch
-       - Missing deps → fix fetch_deps.py
+       - Missing source files -> fix sources.cmake
+       - Missing definitions -> fix CMakeLists.txt
+       - MSVC code issues -> create/extend patch
+       - Missing deps -> fix fetch_deps.py
     5. Apply fixes
     6. Review fixes before re-attempting
 ```

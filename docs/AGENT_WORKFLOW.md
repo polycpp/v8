@@ -13,14 +13,11 @@ git checkout dev
 python scripts/orchestrate.py --version 13.6.233.17 --node-version v24.14.1
 
 # 3. The script will:
-#    - Create branch v8-13.6.233.17
-#    - Generate fetch_deps.py and fetch V8 source
+#    - Generate fetch_deps.py and fetch V8 source/dependencies
 #    - Detect version features
 #    - Generate cmake/sources.cmake
-#    - Generate CMakeLists.txt from template
-#    - Copy stable cmake modules
-#    - Attempt the first build
-#    - Report what needs manual attention
+#    - Report manual work still required for branch-specific build files
+#    - Write build_state.json
 ```
 
 ## Repository Structure
@@ -110,9 +107,8 @@ Master script that runs the full pipeline.
 python scripts/orchestrate.py \
   --version 13.6.233.17 \
   --node-version v24.14.1 \
-  --reference-branch v8-14.3.127.18 \
   --skip-fetch          # Skip fetching if v8-src already has the right version
-  --stop-after discover # Stop after discovery phase (don't attempt build)
+  --stop-after setup    # Stop after setup phase
 ```
 
 ### `scripts/detect_features.py`
