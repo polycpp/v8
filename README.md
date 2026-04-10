@@ -10,7 +10,7 @@ Targets **V8 9.4.146.26** (Node.js v16 "Gallium").
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **3828/3828 (100.0%)** | Zero failures |
-| mjsunit (JavaScript) | **5017/5253 (95.5%)** | 236 failures, 132 skipped |
+| mjsunit (JavaScript) | **5018/5253 (95.5%)** | 235 failures, 132 skipped |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
 
@@ -29,7 +29,7 @@ cmake --build build -j 8
 
 ## Version-Specific Notes
 
-V8 9.4 is the oldest supported version — very different architecture:
+V8 9.4 is the oldest supported version -- very different architecture:
 
 - **C++17**, no Maglev, no Turboshaft, no sandbox
 - **No abseil, fp16, highway, simdutf, fast_float, dragonbox**
@@ -42,7 +42,7 @@ V8 9.4 is the oldest supported version — very different architecture:
 
 ## Known Test Failures
 
-The 236 mjsunit failures are caused by **TurboFan JIT code generation issues**
+The 235 mjsunit failures are caused by **TurboFan JIT code generation issues**
 when V8 9.4 is compiled with MSVC:
 
 - **~104 crashes**: TurboFan-generated x64 machine code triggers ACCESS_VIOLATION
@@ -51,7 +51,7 @@ when V8 9.4 is compiled with MSVC:
 - All crash/wrong-result tests **pass with `--no-opt`** (interpreter-only mode)
 
 The V8 interpreter and Sparkplug baseline compiler work correctly. Only
-TurboFan optimization produces incorrect code — this is expected since V8 9.4's
+TurboFan optimization produces incorrect code -- this is expected since V8 9.4's
 TurboFan backend was not designed for MSVC compilation. V8 embedding use cases
 (running JavaScript without relying on peak optimization) work fine.
 
