@@ -11,7 +11,7 @@ Targets **V8 12.4.254.21** (Node.js v22 LTS "Jod").
 
 | Suite | Result | Notes |
 |-------|--------|-------|
-| v8_unittests (C++) | **5487/5490 (99.9%)** | 3 failures: weak collections shrinking, DiyFp |
+| v8_unittests (C++) | **5485/5490 (99.9%)** | 5 failures: DiyFp, logging, weak collections shrinking |
 | mjsunit (JavaScript) | **6383/6475 (98.6%)** | 92 failures, 109 skipped (debug-only flags) |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 | d8.exe (smoke) | **PASS** | `d8 -e "print(1+2)"` outputs `3` |
@@ -75,11 +75,13 @@ V8 12.4 differs from newer versions in several ways:
 
 ## Known Test Failures
 
-### v8_unittests (3 failures)
+### v8_unittests (5 failures)
 
 | Test | Root Cause |
 |------|-----------|
 | DoubleTest.NormalizedBoundaries | Fatal error in DiyFp optimizer code path |
+| LogAllTest.LogAll | Crashes with Windows exit code 3221225477 |
+| LogTimerTest.ConsoleTimeEvents | Crashes with Windows exit code 3221225477 |
 | WeakMapsTest.Shrinking | Fatal error in weak collection shrinking |
 | WeakSetsTest.WeakSet_Shrinking | Fatal error in weak collection shrinking |
 

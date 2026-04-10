@@ -125,7 +125,7 @@ index 0000000..795ea11
 +++ b/base/trace_event/common/trace_event_common.h
 @@ -0,0 +1,109 @@
 +// Copyright 2015 The Chromium Authors. All rights reserved.
-+// Stub for V8 MSVC builds — provides trace event constants normally
++// Stub for V8 MSVC builds â€” provides trace event constants normally
 +// supplied by the Chromium base library.
 +
 +#ifndef BASE_TRACE_EVENT_COMMON_TRACE_EVENT_COMMON_H_
@@ -526,3 +526,32 @@ index 0000000..9c8758b
 +}
 +
 +}  // namespace v8::internal::wasm::fuzzing
+diff --git a/third_party/icu/source/i18n/unicode/measure.h b/third_party/icu/source/i18n/unicode/measure.h
+index 31f931d7..97759393 100644
+--- a/third_party/icu/source/i18n/unicode/measure.h
++++ b/third_party/icu/source/i18n/unicode/measure.h
+@@ -82,6 +82,13 @@ class U_I18N_API Measure: public UObject {
+      */
+     virtual ~Measure();
+     
++    /**
++     * Equality operator.  Return true if this object is equal
++     * to the given object.
++     * @stable ICU 3.0
++     */
++    bool operator==(const Measure& other) const;
++
+     /**
+      * Equality operator.  Return true if this object is equal
+      * to the given object.
+@@ -157,6 +164,10 @@ inline const MeasureUnit& Measure::getUnit() const {
+     return *unit;
+ }
+ 
++inline bool Measure::operator==(const Measure& other) const {
++    return operator==(static_cast<const UObject&>(other));
++}
++
+ U_NAMESPACE_END
+ 
+ #endif // !UCONFIG_NO_FORMATTING
