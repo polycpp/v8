@@ -12,7 +12,7 @@ Targets **V8 14.1.146.11** (Node.js v25).
 | Suite | Result | Notes |
 |-------|--------|-------|
 | v8_unittests (C++) | **6013/6018 (99.9%)** | 5 failures are platform-specific, not engine bugs |
-| mjsunit (JavaScript) | **965/989 (97.6%)** | 24 failures are Release-only flags, TZ diffs, etc. |
+| mjsunit (JavaScript) | **7574/7946 (95.3%)** | 372 failures from contradictory test flags, module-mode assumptions, TZ/Intl diffs, Temporal/feature gating, and a few timeouts |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
 
 ### Linux (GCC 13.3.0)

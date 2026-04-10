@@ -97,10 +97,16 @@ def ensure_v8_checkout(v8_path, v8_version):
             )
         print(f"  Existing V8 checkout found: {v8_path}")
         run(
-            ["git", "fetch", "--depth=1", "origin", f"refs/tags/{v8_version}"],
+            [
+                "git",
+                "fetch",
+                "--depth=1",
+                "origin",
+                f"refs/tags/{v8_version}:refs/tags/{v8_version}",
+            ],
             cwd=v8_path,
         )
-        ensure_commit(v8_path, v8_version)
+        run(["git", "checkout", "--force", f"refs/tags/{v8_version}"], cwd=v8_path)
         return
 
     run(["git", "clone", "--depth=1", "--branch", v8_version, V8_REPO, v8_path])
