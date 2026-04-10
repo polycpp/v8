@@ -100,8 +100,13 @@ def run_test(d8_path, test_path, mjsunit_js, v8_root, timeout):
     start = time.time()
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
-            cwd=v8_root
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            cwd=v8_root,
         )
         duration = time.time() - start
         if result.returncode == 0:
@@ -227,7 +232,7 @@ def main():
     print(f"Results: {passed}/{run_total} passed, {failed} failed, {skipped} skipped ({elapsed:.0f}s)")
     print(f"Pass rate: {100*passed/run_total:.1f}%" if run_total > 0 else "No tests")
     if skipped:
-        print(f"  ({skipped} tests skipped — require debug-only flags)")
+        print(f"  ({skipped} tests skipped -- require debug-only flags)")
     print(f"{'='*60}")
 
     if errors and not args.verbose:
