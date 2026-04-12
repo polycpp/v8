@@ -68,7 +68,7 @@ else()
       --startup_src "${SNAPSHOT_CC}"
       --embedded_src "${EMBEDDED_S}"
       --embedded_variant Default
-      --target_arch x64
+      --target_arch ${V8_TARGET_ARCH}
       --target_os ${V8_TARGET_OS_FLAG}
     DEPENDS mksnapshot
     WORKING_DIRECTORY "${V8_ROOT}"
@@ -161,11 +161,14 @@ target_include_directories(v8 INTERFACE
 
 # Embedder-visible compile definitions that must match the V8 build.
 # V8 checks these at Isolate creation and will abort on mismatch.
-set(_v8_public_defs
-  V8_COMPRESS_POINTERS
-  V8_COMPRESS_POINTERS_IN_SHARED_CAGE
-  V8_31BIT_SMIS_ON_64BIT_ARCH
-)
+set(_v8_public_defs "")
+if(V8_TARGET_ARCH STREQUAL "x64")
+  list(APPEND _v8_public_defs
+    V8_COMPRESS_POINTERS
+    V8_COMPRESS_POINTERS_IN_SHARED_CAGE
+    V8_31BIT_SMIS_ON_64BIT_ARCH
+  )
+endif()
 if(V8_ENABLE_SANDBOX)
   list(APPEND _v8_public_defs V8_ENABLE_SANDBOX)
 endif()

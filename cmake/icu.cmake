@@ -93,9 +93,9 @@ if(ICU_DATA_FILE)
     set(ICU_DATA_OBJ "${CMAKE_BINARY_DIR}/gen/icudata.obj")
     add_custom_command(
       OUTPUT "${ICU_DATA_OBJ}"
-      COMMAND ${CMAKE_COMMAND} -E env python3
+      COMMAND ${Python3_EXECUTABLE}
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
-        "${ICU_DATA_FILE}" "${ICU_DATA_OBJ}"
+        "${ICU_DATA_FILE}" "${ICU_DATA_OBJ}" "${V8_TARGET_ARCH}"
       DEPENDS "${ICU_DATA_FILE}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_icu_data.py"
       COMMENT "Generating embedded ICU data object from icudtl.dat (COFF)"
     )

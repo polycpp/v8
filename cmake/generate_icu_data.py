@@ -12,8 +12,8 @@ import sys
 import time
 
 
-def create_coff_obj(data, symbol_name, output_path):
-    """Create a minimal x86-64 COFF .obj with one section containing data."""
+def create_coff_obj(data, symbol_name, output_path, arch='x64'):
+    """Create a minimal COFF .obj with one section containing data."""
 
     # Align data to 16 bytes
     aligned_data = data + b'\x00' * ((16 - len(data) % 16) % 16)
@@ -21,7 +21,10 @@ def create_coff_obj(data, symbol_name, output_path):
     symbol_name_bytes = symbol_name.encode('ascii')
 
     # COFF Header (20 bytes)
-    machine = 0x8664  # IMAGE_FILE_MACHINE_AMD64
+    if arch in ('ia32', 'x86', 'Win32'):
+        machine = 0x14C   # IMAGE_FILE_MACHINE_I386
+    else:
+        machine = 0x8664  # IMAGE_FILE_MACHINE_AMD64
     num_sections = 1
     timestamp = int(time.time())
     # Symbol table offset: after header + section headers + raw data
@@ -93,12 +96,13 @@ def create_coff_obj(data, symbol_name, output_path):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <input.dat> <output.obj>", file=sys.stderr)
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <input.dat> <output.obj> [arch]", file=sys.stderr)
         sys.exit(1)
 
     input_path = sys.argv[1]
     output_path = sys.argv[2]
+    arch = sys.argv[3] if len(sys.argv) > 3 else 'x64'
 
     if not os.path.exists(input_path):
         print(f"Error: {input_path} not found", file=sys.stderr)
@@ -117,7 +121,10 @@ def main():
     else:
         icu_ver = '73'  # fallback
     symbol_name = f'icudt{icu_ver}_dat'
-    create_coff_obj(data, symbol_name, output_path)
+    # On ia32, the symbol needs a leading underscore for cdecl linkage
+    if arch in ('ia32', 'x86', 'Win32'):
+        symbol_name = '_' + symbol_name
+    create_coff_obj(data, symbol_name, output_path, arch=arch)
 
 
 if __name__ == '__main__':

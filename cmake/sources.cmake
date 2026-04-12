@@ -140,15 +140,15 @@ v8_src(V8_HEAP_BASE_SOURCES
   src/heap/base/worklist.cc
 )
 
-# x64 assembly for push_registers
+# Architecture-specific assembly for push_registers
 if(WIN32)
   set(V8_HEAP_BASE_ASM_SOURCES
-    "${V8_ROOT}/src/heap/base/asm/x64/push_registers_masm.asm"
+    "${V8_ROOT}/src/heap/base/asm/${V8_TARGET_ARCH}/push_registers_masm.asm"
   )
 else()
   # On Linux, this is a C++ file with inline GAS assembly
   set(V8_HEAP_BASE_ASM_SOURCES
-    "${V8_ROOT}/src/heap/base/asm/x64/push_registers_asm.cc"
+    "${V8_ROOT}/src/heap/base/asm/${V8_TARGET_ARCH}/push_registers_asm.cc"
   )
 endif()
 
@@ -202,10 +202,14 @@ v8_src(V8_CPPGC_SOURCES
   src/heap/cppgc/virtual-memory.cc
   src/heap/cppgc/visitor.cc
   src/heap/cppgc/write-barrier.cc
-  # Caged heap (64-bit)
-  src/heap/cppgc/caged-heap-local-data.cc
-  src/heap/cppgc/caged-heap.cc
 )
+# Caged heap sources require CPPGC_CAGED_HEAP (64-bit only)
+if(V8_TARGET_ARCH STREQUAL "x64")
+  list(APPEND V8_CPPGC_SOURCES
+    "${V8_ROOT}/src/heap/cppgc/caged-heap-local-data.cc"
+    "${V8_ROOT}/src/heap/cppgc/caged-heap.cc"
+  )
+endif()
 
 # =============================================================================
 # Third-party sources
@@ -377,8 +381,7 @@ v8_src(V8_COMPILER_SOURCES
   src/compiler/turboshaft/simplify-tf-loops.cc
   src/compiler/turboshaft/store-store-elimination-phase.cc
   src/compiler/turboshaft/string-escape-analysis-reducer.cc
-  src/compiler/turboshaft/turbolev-frontend-pipeline.cc
-  src/compiler/turboshaft/turbolev-graph-builder.cc
+  # turbolev sources: conditional on architecture (requires Maglev arch backend)
   src/compiler/turboshaft/type-assertions-phase.cc
   src/compiler/turboshaft/type-parser.cc
   src/compiler/turboshaft/typed-optimizations-phase.cc
@@ -392,12 +395,37 @@ v8_src(V8_COMPILER_SOURCES
   src/compiler/value-numbering-reducer.cc
   src/compiler/verifier.cc
   src/compiler/zone-stats.cc
-  # x64 backend
-  src/compiler/backend/x64/code-generator-x64.cc
-  src/compiler/backend/x64/instruction-scheduler-x64.cc
-  src/compiler/backend/x64/instruction-selector-x64.cc
-  src/compiler/backend/x64/unwinding-info-writer-x64.cc
 )
+
+# TurboLev sources (require Maglev arch backend)
+if(V8_TARGET_ARCH STREQUAL "x64")
+  list(APPEND V8_COMPILER_SOURCES
+    "${V8_ROOT}/src/compiler/turboshaft/turbolev-frontend-pipeline.cc"
+    "${V8_ROOT}/src/compiler/turboshaft/turbolev-graph-builder.cc"
+  )
+else()
+  # ia32: Maglev has no arch backend, provide stub
+  list(APPEND V8_COMPILER_SOURCES
+    "${V8_ROOT}/src/compiler/turboshaft/turbolev-stub-ia32.cc"
+  )
+endif()
+
+# Architecture-specific compiler backend
+if(V8_TARGET_ARCH STREQUAL "x64")
+  v8_src(V8_COMPILER_ARCH_SOURCES
+    src/compiler/backend/x64/code-generator-x64.cc
+    src/compiler/backend/x64/instruction-scheduler-x64.cc
+    src/compiler/backend/x64/instruction-selector-x64.cc
+    src/compiler/backend/x64/unwinding-info-writer-x64.cc
+  )
+elseif(V8_TARGET_ARCH STREQUAL "ia32")
+  v8_src(V8_COMPILER_ARCH_SOURCES
+    src/compiler/backend/ia32/code-generator-ia32.cc
+    src/compiler/backend/ia32/instruction-scheduler-ia32.cc
+    src/compiler/backend/ia32/instruction-selector-ia32.cc
+  )
+endif()
+list(APPEND V8_COMPILER_SOURCES ${V8_COMPILER_ARCH_SOURCES})
 
 # WebAssembly compiler sources
 v8_src(V8_COMPILER_WASM_SOURCES
@@ -909,23 +937,41 @@ v8_src(V8_BASE_SOURCES
   src/zone/type-stats.cc
   src/zone/zone-segment.cc
   src/zone/zone.cc
-  # x64 architecture-specific
+  # shared ia32/x64 sources
   src/codegen/shared-ia32-x64/macro-assembler-shared-ia32-x64.cc
-  src/codegen/x64/assembler-x64.cc
-  src/codegen/x64/cpu-x64.cc
-  src/codegen/x64/macro-assembler-x64.cc
-  src/deoptimizer/x64/deoptimizer-x64.cc
-  src/diagnostics/x64/disasm-x64.cc
-  src/diagnostics/x64/eh-frame-x64.cc
-  src/diagnostics/x64/unwinder-x64.cc
-  src/execution/x64/frame-constants-x64.cc
-  src/regexp/x64/regexp-macro-assembler-x64.cc
   # halfsiphash
   third_party/siphash/halfsiphash.cc
 )
 
-# Windows-specific v8_base source
-if(WIN32)
+# Architecture-specific v8_base sources
+if(V8_TARGET_ARCH STREQUAL "x64")
+  v8_src(V8_BASE_ARCH_SOURCES
+    src/codegen/x64/assembler-x64.cc
+    src/codegen/x64/cpu-x64.cc
+    src/codegen/x64/macro-assembler-x64.cc
+    src/deoptimizer/x64/deoptimizer-x64.cc
+    src/diagnostics/x64/disasm-x64.cc
+    src/diagnostics/x64/eh-frame-x64.cc
+    src/diagnostics/x64/unwinder-x64.cc
+    src/execution/x64/frame-constants-x64.cc
+    src/regexp/x64/regexp-macro-assembler-x64.cc
+  )
+elseif(V8_TARGET_ARCH STREQUAL "ia32")
+  v8_src(V8_BASE_ARCH_SOURCES
+    src/codegen/ia32/assembler-ia32.cc
+    src/codegen/ia32/cpu-ia32.cc
+    src/codegen/ia32/macro-assembler-ia32.cc
+    src/deoptimizer/ia32/deoptimizer-ia32.cc
+    src/diagnostics/ia32/disasm-ia32.cc
+    src/diagnostics/ia32/unwinder-ia32.cc
+    src/execution/ia32/frame-constants-ia32.cc
+    src/regexp/ia32/regexp-macro-assembler-ia32.cc
+  )
+endif()
+list(APPEND V8_BASE_SOURCES ${V8_BASE_ARCH_SOURCES})
+
+# Windows-specific v8_base source (Win64 unwinding info is x64 only)
+if(WIN32 AND V8_TARGET_ARCH STREQUAL "x64")
   list(APPEND V8_BASE_SOURCES "${V8_ROOT}/src/diagnostics/unwinding-info-win64.cc")
 endif()
 
@@ -957,10 +1003,15 @@ v8_src(V8_MAGLEV_SOURCES
   src/maglev/maglev-regalloc.cc
   src/maglev/maglev-truncation.cc
   src/maglev/maglev.cc
-  # x64
-  src/maglev/x64/maglev-assembler-x64.cc
-  src/maglev/x64/maglev-ir-x64.cc
 )
+# Maglev architecture-specific sources (x64 only, no ia32 backend)
+if(V8_TARGET_ARCH STREQUAL "x64")
+  v8_src(V8_MAGLEV_ARCH_SOURCES
+    src/maglev/x64/maglev-assembler-x64.cc
+    src/maglev/x64/maglev-ir-x64.cc
+  )
+  list(APPEND V8_MAGLEV_SOURCES ${V8_MAGLEV_ARCH_SOURCES})
+endif()
 
 # WebAssembly base sources
 v8_src(V8_WASM_SOURCES
@@ -1093,9 +1144,13 @@ v8_src(V8_INITIALIZERS_SOURCES
   src/interpreter/interpreter-generator-tsa.cc
   src/interpreter/interpreter-generator.cc
   src/interpreter/interpreter-intrinsics-generator.cc
-  # x64 builtins
-  src/builtins/x64/builtins-x64.cc
 )
+# Architecture-specific builtins
+if(V8_TARGET_ARCH STREQUAL "x64")
+  list(APPEND V8_INITIALIZERS_SOURCES "${V8_ROOT}/src/builtins/x64/builtins-x64.cc")
+elseif(V8_TARGET_ARCH STREQUAL "ia32")
+  list(APPEND V8_INITIALIZERS_SOURCES "${V8_ROOT}/src/builtins/ia32/builtins-ia32.cc")
+endif()
 
 # WebAssembly builtins
 v8_src(V8_INITIALIZERS_WASM_SOURCES

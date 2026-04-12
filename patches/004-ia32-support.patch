@@ -1,0 +1,92 @@
+diff --git a/src/compiler/turboshaft/turbolev-stub-ia32.cc b/src/compiler/turboshaft/turbolev-stub-ia32.cc
+new file mode 100644
+index 00000000..09ab5bd3
+--- /dev/null
++++ b/src/compiler/turboshaft/turbolev-stub-ia32.cc
+@@ -0,0 +1,19 @@
++// Stub for ia32: TurboLev (Maglev graph building for Turboshaft) is not
++// supported on ia32 because there is no Maglev ia32 backend.
++// This provides the minimal symbols needed to link the pipeline.
++
++#include "src/compiler/turboshaft/turbolev-graph-builder.h"
++
++#include "src/codegen/bailout-reason.h"
++#include "src/compiler/linkage.h"
++#include "src/compiler/turboshaft/phase.h"
++
++namespace v8::internal::compiler::turboshaft {
++
++std::optional<BailoutReason> TurbolevGraphBuildingPhase::Run(
++    PipelineData* data, Zone* temp_zone, Linkage* linkage) {
++  // Maglev backend not available on ia32.
++  return BailoutReason::kNoReason;
++}
++
++}  // namespace v8::internal::compiler::turboshaft
+diff --git a/src/heap/base/asm/ia32/push_registers_masm.asm b/src/heap/base/asm/ia32/push_registers_masm.asm
+new file mode 100644
+index 00000000..a9e77e9e
+--- /dev/null
++++ b/src/heap/base/asm/ia32/push_registers_masm.asm
+@@ -0,0 +1,61 @@
++;; Copyright 2020 the V8 project authors. All rights reserved.
++;; Use of this source code is governed by a BSD-style license that can be
++;; found in the LICENSE file.
++
++;; MASM syntax - ia32 (32-bit)
++;; https://docs.microsoft.com/en-us/cpp/assembler/masm/microsoft-macro-assembler-reference
++
++.model flat, C
++
++public PushAllRegistersAndIterateStack
++
++.code
++PushAllRegistersAndIterateStack proc
++    ;; Push all callee-saved registers to get them on the stack for conservative
++    ;; stack scanning.
++    ;;
++    ;; We maintain 16-byte alignment at calls. There is a 4-byte return address
++    ;; on the stack and we push 28 bytes which maintains 16-byte stack alignment
++    ;; at the call.
++    ;;
++    ;; cdecl calling convention:
++    ;;   [esp+16] = IterateStackCallback
++    ;;   [esp+12] = StackVisitor*
++    ;;   [esp+8]  = Stack*  (but we haven't pushed yet, so offsets shift)
++    ;;   [esp+4]  = return address
++    ;;
++    ;; After pushes, the original args are at higher offsets.
++
++    ;; ebp is callee-saved. Maintain proper frame pointer for debugging.
++    push ebp
++    mov ebp, esp
++    push ebx
++    push esi
++    push edi
++    ;; Save 3rd parameter (IterateStackCallback).
++    ;; Original [esp+16] before pushes => now [esp+28] (4 pushes + ret = 5*4=20, so 16+4(ret)=20 offset from original esp... let's use ebp-relative)
++    ;; With ebp = original esp - 4(ret), the args are at:
++    ;;   [ebp+8]  = Stack*
++    ;;   [ebp+12] = StackVisitor*
++    ;;   [ebp+16] = IterateStackCallback
++    mov ecx, [ebp+16]
++    ;; Pass 3rd parameter as esp (stack pointer).
++    push esp
++    ;; Pass 2nd parameter (StackVisitor*).
++    push dword ptr [ebp+12]
++    ;; Pass 1st parameter (Stack*).
++    push dword ptr [ebp+8]
++    ;; Call the callback.
++    call ecx
++    ;; Pop the call arguments.
++    add esp, 12
++    ;; Pop the callee-saved registers.
++    pop edi
++    pop esi
++    pop ebx
++    ;; Restore ebp as it was used as frame pointer.
++    pop ebp
++    ret
++PushAllRegistersAndIterateStack endp
++
++end
