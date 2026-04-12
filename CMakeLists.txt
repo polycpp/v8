@@ -202,6 +202,8 @@ include_directories(
 # =============================================================================
 # Include sub-build files
 # =============================================================================
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 include(cmake/sources.cmake)    # Source file lists
 include(cmake/torque.cmake)     # Torque code generation
 include(cmake/icu.cmake)        # ICU build
