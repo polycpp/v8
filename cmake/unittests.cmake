@@ -26,11 +26,16 @@ file(GLOB_RECURSE V8_UNITTEST_CC_FILES
   "${V8_UNITTEST_DIR}/*-unittest.cc"
 )
 
-# Exclude architecture-specific files for non-x64 architectures
+# Exclude architecture-specific files for non-target architectures
 # Match both directory-based (/arm/) and filename-based (-arm-) patterns
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]arm[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]arm64[-/.]")
-list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]ia32[-/.]")
+if(NOT V8_TARGET_ARCH STREQUAL "ia32")
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]ia32[-/.]")
+endif()
+if(NOT V8_TARGET_ARCH STREQUAL "x64")
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]x64[-/.]")
+endif()
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]mips[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]mips64[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]s390[-/.]")
@@ -40,6 +45,13 @@ list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]riscv[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]riscv32[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]riscv64[-/.]")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]loong64[-/.]")
+
+# Exclude tests that require 64-bit features on ia32
+if(V8_TARGET_ARCH STREQUAL "ia32")
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "age-table-unittest")
+  # Maglev tests reference arch-specific backend (no ia32 Maglev backend)
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "[-/]maglev[-/]")
+endif()
 
 # Exclude platform-specific test files
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "fuchsia")

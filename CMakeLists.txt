@@ -51,6 +51,13 @@ else()
   set(V8_TARGET_ARCH "ia32")
 endif()
 
+# Force-disable features that require 64-bit on ia32 builds
+if(V8_TARGET_ARCH STREQUAL "ia32")
+  set(V8_ENABLE_POINTER_COMPRESSION OFF CACHE BOOL "" FORCE)
+  set(V8_ENABLE_SANDBOX OFF CACHE BOOL "" FORCE)
+  set(V8_ENABLE_MAGLEV OFF CACHE BOOL "" FORCE)
+endif()
+
 message(STATUS "V8 target architecture: ${V8_TARGET_ARCH}")
 message(STATUS "V8 version: 14.3.127.18")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
@@ -60,10 +67,6 @@ message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}
 # =============================================================================
 add_compile_definitions(
   # V8 core (platform-independent)
-  V8_TARGET_ARCH_X64
-  V8_HOST_ARCH_X64
-  V8_COMPRESS_POINTERS
-  V8_31BIT_SMIS_ON_64BIT_ARCH
   V8_DEPRECATION_WARNINGS
   V8_IMMINENT_DEPRECATION_WARNINGS
   V8_ENABLE_TURBOFAN
@@ -74,18 +77,34 @@ add_compile_definitions(
   V8_ALLOCATION_FOLDING
   V8_ALLOCATION_SITE_TRACKING
   V8_ADVANCED_BIGINT_ALGORITHMS
-  V8_COMPRESS_POINTERS_IN_SHARED_CAGE
-  V8_SHORT_BUILTIN_CALLS
-  V8_EXTERNAL_CODE_SPACE
   V8_ENABLE_REGEXP_INTERPRETER_THREADED_DISPATCH
   V8_SNAPSHOT_COMPRESSION
   V8_USE_ZLIB
-  V8_CONTIGUOUS_COMPRESSED_RO_SPACE_SIZE_MB=8
-  V8_ENABLE_LEAPTIERING
-  CPPGC_CAGED_HEAP
-  CPPGC_YOUNG_GENERATION
   V8_ENABLE_CONTINUATION_PRESERVED_EMBEDDER_DATA
 )
+
+# Architecture-specific definitions
+if(V8_TARGET_ARCH STREQUAL "x64")
+  add_compile_definitions(
+    V8_TARGET_ARCH_X64
+    V8_HOST_ARCH_X64
+    V8_COMPRESS_POINTERS
+    V8_31BIT_SMIS_ON_64BIT_ARCH
+    V8_COMPRESS_POINTERS_IN_SHARED_CAGE
+    V8_SHORT_BUILTIN_CALLS
+    V8_EXTERNAL_CODE_SPACE
+    V8_CONTIGUOUS_COMPRESSED_RO_SPACE_SIZE_MB=8
+    V8_ENABLE_LEAPTIERING
+    CPPGC_CAGED_HEAP
+    CPPGC_YOUNG_GENERATION
+  )
+elseif(V8_TARGET_ARCH STREQUAL "ia32")
+  add_compile_definitions(
+    V8_TARGET_ARCH_IA32
+    V8_HOST_ARCH_IA32
+    V8_ENABLE_LEAPTIERING
+  )
+endif()
 
 # Platform-specific definitions
 if(WIN32)
@@ -97,10 +116,12 @@ if(WIN32)
     _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS
     _CRT_SECURE_NO_WARNINGS
     UNICODE _UNICODE
-    V8_WIN64_UNWINDING_INFO
     V8_ENABLE_SYSTEM_INSTRUMENTATION
     V8_TARGET_OS_WIN
   )
+  if(V8_TARGET_ARCH STREQUAL "x64")
+    add_compile_definitions(V8_WIN64_UNWINDING_INFO)
+  endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_compile_definitions(
     V8_HAVE_TARGET_OS
@@ -284,6 +305,8 @@ include_directories(
 # =============================================================================
 # Include sub-build files
 # =============================================================================
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 include(cmake/sources.cmake)    # Source file lists
 include(cmake/torque.cmake)     # Torque code generation
 include(cmake/icu.cmake)        # ICU build
