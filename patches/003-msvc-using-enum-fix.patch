@@ -1,0 +1,297 @@
+diff --git a/src/regexp/regexp-bytecodes-inl.h b/src/regexp/regexp-bytecodes-inl.h
+index 8b9ada91..addbf229 100644
+--- a/src/regexp/regexp-bytecodes-inl.h
++++ b/src/regexp/regexp-bytecodes-inl.h
+@@ -100,7 +100,7 @@ struct RegExpBytecodeOperandsTraits {
+ };
+ 
+ template <RegExpBytecode bc>
+-struct RegExpBytecodeOperandNames;
++struct RegExpBytecodeOperandNames {};
+ 
+ #define DECLARE_OPERAND_NAMES(CamelName, SnakeName, OpNames, OpTypes) \
+   template <>                                                         \
+@@ -140,11 +140,20 @@ class RegExpBytecodeOperandsBase {
+   // above is essentially a constant.
+   template <typename Func>
+   static constexpr void ForEachOperand(Func&& f) {
+-    [&]<size_t... I>(std::index_sequence<I...>) {
+-      (..., f.template operator()<static_cast<Operand>(I)>());
+-    }(std::make_index_sequence<kCount>{});
++    ForEachOperandImpl(std::forward<Func>(f),
++                       std::make_index_sequence<kCount>{});
+   }
+ 
++ private:
++  // MSVC workaround: avoid generic lambda with explicit template call syntax.
++  template <typename Func, size_t... I>
++  static constexpr void ForEachOperandImpl(Func&& f,
++                                           std::index_sequence<I...>) {
++    (..., f.template operator()<static_cast<Operand>(I)>());
++  }
++
++ public:
++
+   // Similar to above, but calls |f| only for operands of a given type.
+   template <RegExpBytecodeOperandType OpType, typename Func>
+   static constexpr void ForEachOperandOfType(Func&& f) {
+@@ -217,8 +226,6 @@ class RegExpBytecodeOperandsBase {
+       : public detail::RegExpBytecodeOperandsBase<PACK_OPTIONAL(   \
+             RegExpBytecode::k##CamelName, UNPAREN(OpTypes))>,      \
+         public AllStatic {                                         \
+-   public:                                                         \
+-    using enum Operand;                                            \
+   };
+ 
+ REGEXP_BYTECODE_LIST(DECLARE_OPERANDS)
+diff --git a/src/regexp/regexp-code-generator.cc b/src/regexp/regexp-code-generator.cc
+index 5b5ae0b1..7e7ddacb 100644
+--- a/src/regexp/regexp-code-generator.cc
++++ b/src/regexp/regexp-code-generator.cc
+@@ -60,26 +60,46 @@ auto RegExpCodeGenerator::GetArgumentValue(const uint8_t* pc) const {
+   }
+ }
+ 
++// MSVC workaround: Helper to filter a single operand (avoids generic lambda
++// template call syntax that MSVC doesn't support).
++template <typename Operands, std::size_t I>
++consteval auto FilterOperandForDispatch() {
++  using Operand = typename Operands::Operand;
++  constexpr auto id = static_cast<Operand>(I);
++  if constexpr (Operands::Type(id) == ReBcOpType::kPadding1 ||
++                Operands::Type(id) == ReBcOpType::kPadding2) {
++    return std::tuple<>();
++  } else {
++    return std::tuple(std::integral_constant<Operand, id>{});
++  }
++}
++
++template <typename Operands, std::size_t... Is>
++consteval auto FilterOperandsImpl(std::index_sequence<Is...>) {
++  return std::tuple_cat(FilterOperandForDispatch<Operands, Is>()...);
++}
++
++// MSVC workaround: Use tuple_element_t instead of std::apply with
++// fold expression on integral_constant pack.
++template <typename Func, typename Tuple, std::size_t... Is>
++void ApplyOperandPack(Func&& func, const Tuple&,
++                      std::index_sequence<Is...>) {
++  func.template
++      operator()<std::tuple_element_t<Is, Tuple>::value...>();
++}
++
+ // Calls |func| passing all operand ids (except paddings) as a template
+ // parameter pack.
+ template <typename Operands, typename Func>
+ void DispatchByOperand(Func&& func) {
+   // Filter padding operands.
+-  auto filtered_ops = []<std::size_t... Is>(std::index_sequence<Is...>) {
+-    return std::tuple_cat([]<std::size_t I>() {
+-      using Operand = typename Operands::Operand;
+-      constexpr auto id = static_cast<Operand>(I);
+-      if constexpr (Operands::Type(id) == ReBcOpType::kPadding1 ||
+-                    Operands::Type(id) == ReBcOpType::kPadding2) {
+-        return std::tuple<>();
+-      } else {
+-        return std::tuple(std::integral_constant<Operand, id>{});
+-      }
+-    }.template operator()<Is>()...);
+-  }(std::make_index_sequence<Operands::kCount>{});
+-
+-  std::apply([&](auto... ops) { func.template operator()<ops.value...>(); },
+-             filtered_ops);
++  constexpr auto filtered_ops =
++      FilterOperandsImpl<Operands>(
++          std::make_index_sequence<Operands::kCount>{});
++  using FilteredTuple = decltype(filtered_ops);
++  ApplyOperandPack(
++      std::forward<Func>(func), filtered_ops,
++      std::make_index_sequence<std::tuple_size_v<FilteredTuple>>{});
+ }
+ 
+ #ifdef V8_CODE_COMMENTS
+@@ -144,8 +164,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheckBitInTable>() {
+   VISIT_COMMENT("CheckBitInTable");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kCheckBitInTable>;
+   const uint8_t* pc = iter_.current_address();
+-  auto on_bit_set = GetArgumentValue<Operands, Operands::on_bit_set>(pc);
+-  const uint8_t* table_data = GetArgumentValue<Operands, Operands::table>(pc);
++  auto on_bit_set = GetArgumentValue<Operands, Operands::Operand::on_bit_set>(pc);
++  const uint8_t* table_data = GetArgumentValue<Operands, Operands::Operand::table>(pc);
+   static_assert(Operands::kCount == 2);
+   Handle<ByteArray> table = CreateBitTableByteArray(isolate_, table_data);
+   __ CheckBitInTable(table, on_bit_set);
+@@ -158,7 +178,7 @@ void RegExpCodeGenerator::Visit<
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kLoadCurrentCharacterUnchecked>;
+   const uint8_t* pc = iter_.current_address();
+-  auto cp_offset = GetArgumentValue<Operands, Operands::cp_offset>(pc);
++  auto cp_offset = GetArgumentValue<Operands, Operands::Operand::cp_offset>(pc);
+   static_assert(Operands::kCount == 1);
+   static constexpr int kChars = 1;
+   __ LoadCurrentCharacterImpl(cp_offset, nullptr, false, kChars, kChars);
+@@ -169,8 +189,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kLoad2CurrentChars>() {
+   VISIT_COMMENT("Load2CurrentChars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kLoad2CurrentChars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto cp_offset = GetArgumentValue<Operands, Operands::cp_offset>(pc);
+-  auto on_failure = GetArgumentValue<Operands, Operands::on_failure>(pc);
++  auto cp_offset = GetArgumentValue<Operands, Operands::Operand::cp_offset>(pc);
++  auto on_failure = GetArgumentValue<Operands, Operands::Operand::on_failure>(pc);
+   static_assert(Operands::kCount == 2);
+   static constexpr int kChars = 2;
+   __ LoadCurrentCharacterImpl(cp_offset, on_failure, true, kChars, kChars);
+@@ -182,7 +202,7 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kLoad2CurrentCharsUnchecked>() {
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kLoad2CurrentCharsUnchecked>;
+   const uint8_t* pc = iter_.current_address();
+-  auto cp_offset = GetArgumentValue<Operands, Operands::cp_offset>(pc);
++  auto cp_offset = GetArgumentValue<Operands, Operands::Operand::cp_offset>(pc);
+   static_assert(Operands::kCount == 1);
+   static constexpr int kChars = 2;
+   __ LoadCurrentCharacterImpl(cp_offset, nullptr, false, kChars, kChars);
+@@ -193,8 +213,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kLoad4CurrentChars>() {
+   VISIT_COMMENT("Load4CurrentChars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kLoad4CurrentChars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto cp_offset = GetArgumentValue<Operands, Operands::cp_offset>(pc);
+-  auto on_failure = GetArgumentValue<Operands, Operands::on_failure>(pc);
++  auto cp_offset = GetArgumentValue<Operands, Operands::Operand::cp_offset>(pc);
++  auto on_failure = GetArgumentValue<Operands, Operands::Operand::on_failure>(pc);
+   static_assert(Operands::kCount == 2);
+   static constexpr int kChars = 4;
+   __ LoadCurrentCharacterImpl(cp_offset, on_failure, true, kChars, kChars);
+@@ -206,7 +226,7 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kLoad4CurrentCharsUnchecked>() {
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kLoad4CurrentCharsUnchecked>;
+   const uint8_t* pc = iter_.current_address();
+-  auto cp_offset = GetArgumentValue<Operands, Operands::cp_offset>(pc);
++  auto cp_offset = GetArgumentValue<Operands, Operands::Operand::cp_offset>(pc);
+   static_assert(Operands::kCount == 1);
+   static constexpr int kChars = 4;
+   __ LoadCurrentCharacterImpl(cp_offset, nullptr, false, kChars, kChars);
+@@ -217,8 +237,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheck4Chars>() {
+   VISIT_COMMENT("Check4Chars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kCheck4Chars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto characters = GetArgumentValue<Operands, Operands::characters>(pc);
+-  auto on_equal = GetArgumentValue<Operands, Operands::on_equal>(pc);
++  auto characters = GetArgumentValue<Operands, Operands::Operand::characters>(pc);
++  auto on_equal = GetArgumentValue<Operands, Operands::Operand::on_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckCharacter(characters, on_equal);
+ }
+@@ -228,8 +248,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheckNot4Chars>() {
+   VISIT_COMMENT("CheckNot4Chars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kCheckNot4Chars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto characters = GetArgumentValue<Operands, Operands::characters>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto characters = GetArgumentValue<Operands, Operands::Operand::characters>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotCharacter(characters, on_not_equal);
+ }
+@@ -239,9 +259,9 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kAndCheck4Chars>() {
+   VISIT_COMMENT("AndCheck4Chars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kAndCheck4Chars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto characters = GetArgumentValue<Operands, Operands::characters>(pc);
+-  auto mask = GetArgumentValue<Operands, Operands::mask>(pc);
+-  auto on_equal = GetArgumentValue<Operands, Operands::on_equal>(pc);
++  auto characters = GetArgumentValue<Operands, Operands::Operand::characters>(pc);
++  auto mask = GetArgumentValue<Operands, Operands::Operand::mask>(pc);
++  auto on_equal = GetArgumentValue<Operands, Operands::Operand::on_equal>(pc);
+   static_assert(Operands::kCount == 3);
+   __ CheckCharacterAfterAnd(characters, mask, on_equal);
+ }
+@@ -251,9 +271,9 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kAndCheckNot4Chars>() {
+   VISIT_COMMENT("AndCheckNot4Chars");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kAndCheckNot4Chars>;
+   const uint8_t* pc = iter_.current_address();
+-  auto characters = GetArgumentValue<Operands, Operands::characters>(pc);
+-  auto mask = GetArgumentValue<Operands, Operands::mask>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto characters = GetArgumentValue<Operands, Operands::Operand::characters>(pc);
++  auto mask = GetArgumentValue<Operands, Operands::Operand::mask>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 3);
+   __ CheckNotCharacterAfterAnd(characters, mask, on_not_equal);
+ }
+@@ -263,8 +283,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kAdvanceCpAndGoto>() {
+   VISIT_COMMENT("AdvanceCpAndGoto");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kAdvanceCpAndGoto>;
+   const uint8_t* pc = iter_.current_address();
+-  auto by = GetArgumentValue<Operands, Operands::by>(pc);
+-  auto on_goto = GetArgumentValue<Operands, Operands::on_goto>(pc);
++  auto by = GetArgumentValue<Operands, Operands::Operand::by>(pc);
++  auto on_goto = GetArgumentValue<Operands, Operands::Operand::on_goto>(pc);
+   static_assert(Operands::kCount == 2);
+   __ AdvanceCurrentPosition(by);
+   __ GoTo(on_goto);
+@@ -275,8 +295,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheckNotBackRef>() {
+   VISIT_COMMENT("CheckNotBackRef");
+   using Operands = RegExpBytecodeOperands<RegExpBytecode::kCheckNotBackRef>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReference(start_reg, false, on_not_equal);
+ }
+@@ -287,8 +307,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheckNotBackRefNoCase>() {
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kCheckNotBackRefNoCase>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReferenceIgnoreCase(start_reg, false, false, on_not_equal);
+ }
+@@ -300,8 +320,8 @@ void RegExpCodeGenerator::Visit<
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kCheckNotBackRefNoCaseUnicode>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReferenceIgnoreCase(start_reg, false, true, on_not_equal);
+ }
+@@ -312,8 +332,8 @@ void RegExpCodeGenerator::Visit<RegExpBytecode::kCheckNotBackRefBackward>() {
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kCheckNotBackRefBackward>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReference(start_reg, true, on_not_equal);
+ }
+@@ -325,8 +345,8 @@ void RegExpCodeGenerator::Visit<
+   using Operands =
+       RegExpBytecodeOperands<RegExpBytecode::kCheckNotBackRefNoCaseBackward>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReferenceIgnoreCase(start_reg, true, false, on_not_equal);
+ }
+@@ -338,8 +358,8 @@ void RegExpCodeGenerator::Visit<
+   using Operands = RegExpBytecodeOperands<
+       RegExpBytecode::kCheckNotBackRefNoCaseUnicodeBackward>;
+   const uint8_t* pc = iter_.current_address();
+-  auto start_reg = GetArgumentValue<Operands, Operands::start_reg>(pc);
+-  auto on_not_equal = GetArgumentValue<Operands, Operands::on_not_equal>(pc);
++  auto start_reg = GetArgumentValue<Operands, Operands::Operand::start_reg>(pc);
++  auto on_not_equal = GetArgumentValue<Operands, Operands::Operand::on_not_equal>(pc);
+   static_assert(Operands::kCount == 2);
+   __ CheckNotBackReferenceIgnoreCase(start_reg, true, true, on_not_equal);
+ }
