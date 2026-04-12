@@ -1,22 +1,25 @@
 # V8 CMake Build
 
 CMake build system for the [V8 JavaScript engine](https://v8.dev/) — no
-depot_tools or GN required. Supports **Windows (MSVC)** and **Linux (GCC/Clang)**.
+depot_tools or GN required. Supports **Windows (MSVC)**, **Linux (GCC/Clang)**,
+and **FreeBSD (Clang)**.
 
 Each V8 version lives on its own branch with pinned sources, patches, and
 tested CMake build files. Pick a branch below and follow the instructions there.
 
 ## Available Versions
 
-| Branch | V8 Version | Platform | Status (Windows / Linux) |
-|--------|-----------|----------|--------|
-| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **97.5% / 82.9%** |
-| [`v8-14.1.146.11`](../../tree/v8-14.1.146.11) | 14.1.146.11 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **97.6% / 82.9%** |
-| [`v8-13.6.233.17`](../../tree/v8-13.6.233.17) | 13.6.233.17 | Windows, Linux | unittests **99.8% / 99.9%**, mjsunit **99.2% / 99.2%** |
-| [`v8-12.4.254.21`](../../tree/v8-12.4.254.21) | 12.4.254.21 | Windows, Linux | unittests **99.9% / 99.9%**, mjsunit **98.6% / 98.6%** |
-| [`v8-11.3.244.8`](../../tree/v8-11.3.244.8) | 11.3.244.8 | Windows, Linux | unittests **99.9% / 100.0%**, mjsunit **98.7% / 98.6%** |
-| [`v8-10.2.154.26`](../../tree/v8-10.2.154.26) | 10.2.154.26 | Windows | unittests **100.0%**, mjsunit **98.2%** |
-| [`v8-9.4.146.26`](../../tree/v8-9.4.146.26) | 9.4.146.26 | Windows | unittests **100.0%**, mjsunit **95.5%** |
+| Branch | V8 Version | Platforms |
+|--------|-----------|-----------|
+| [`v8-14.3.127.18`](../../tree/v8-14.3.127.18) | 14.3.127.18 | Windows, Linux, FreeBSD |
+| [`v8-14.1.146.11`](../../tree/v8-14.1.146.11) | 14.1.146.11 | Windows, Linux |
+| [`v8-13.6.233.17`](../../tree/v8-13.6.233.17) | 13.6.233.17 | Windows, Linux |
+| [`v8-12.4.254.21`](../../tree/v8-12.4.254.21) | 12.4.254.21 | Windows, Linux |
+| [`v8-11.3.244.8`](../../tree/v8-11.3.244.8) | 11.3.244.8 | Windows, Linux |
+| [`v8-10.2.154.26`](../../tree/v8-10.2.154.26) | 10.2.154.26 | Windows |
+| [`v8-9.4.146.26`](../../tree/v8-9.4.146.26) | 9.4.146.26 | Windows |
+
+See each branch's README for detailed test results and platform-specific notes.
 
 ## What You Get
 
@@ -51,7 +54,7 @@ cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-### Linux (GCC/Clang)
+### Linux / FreeBSD (GCC/Clang)
 
 ```cmake
 cmake_minimum_required(VERSION 3.20)
@@ -74,9 +77,10 @@ cmake --build build
 ### Cross-Platform
 
 The V8 CMake build auto-detects the platform — just set the appropriate
-project languages (`ASM_MASM` on Windows, `ASM` on Linux) and V8 handles
-the rest. The `v8` target automatically provides include paths, compile
-definitions (`V8_COMPRESS_POINTERS`, etc.), and platform-appropriate flags.
+project languages (`ASM_MASM` on Windows, `ASM` on Linux/FreeBSD) and V8
+handles the rest. The `v8` target automatically provides include paths,
+compile definitions (`V8_COMPRESS_POINTERS`, etc.), and platform-appropriate
+flags.
 
 Alternatively, install V8 once and use `find_package`:
 
@@ -132,16 +136,16 @@ int main(int argc, char* argv[]) {
 ## Prerequisites
 
 ### Windows
-- Visual Studio with C++ workload (tested with VS 2025 / MSVC 19.50)
-- CMake 3.20+
-- Ninja
-- Python 3
+- Visual Studio with C++ workload (MSVC 19.x)
+- CMake 3.20+, Ninja, Python 3
 
 ### Linux
 - GCC 13+ or Clang 16+
-- CMake 3.20+
-- Ninja
-- Python 3
+- CMake 3.20+, Ninja, Python 3
+
+### FreeBSD
+- Clang 16+ (FreeBSD base clang is sufficient)
+- CMake 3.20+, Ninja, Python 3
 
 ## Getting Started
 
@@ -152,24 +156,18 @@ cd v8
 git checkout v8-14.3.127.18
 
 # Fetch V8 source and dependencies
-python fetch_deps.py
+python3 fetch_deps.py
 
-# Apply patches (see version branch README for which patches to apply)
-cd v8-src && git apply ../patches/001-msvc-compatibility.patch && cd ..
+# Apply patches (Windows only — no patches needed on Linux/FreeBSD)
+# cd v8-src && git apply ../patches/001-msvc-compatibility.patch && cd ..
 
 # Build
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-On Linux, a `build.sh` script is also provided:
-
-```bash
-./build.sh          # Release build
-./build.sh debug    # Debug build
-```
-
-See the version branch README for full build options, test results, and details.
+See the version branch README for full build options, test results, and
+platform-specific details.
 
 ## License
 
