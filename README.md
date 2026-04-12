@@ -8,15 +8,23 @@ Targets **V8 14.3.127.18**.
 
 ## Test Results
 
-### Windows (MSVC 19.50)
+### Windows x64 (MSVC 19.44)
 
 | Suite | Result | Notes |
 |-------|--------|-------|
-| v8_unittests (C++) | **5963/5968 (99.9%)** | 5 failures: 2 logging crashes, 2 WeakMaps/WeakSets shrink checks, 1 double edge-case |
-| mjsunit (JavaScript) | **7763/8150 (95.3%)** | 387 failures from flag conflicts, platform/TZ differences, unsupported experimental paths, and memory/timeouts |
+| v8_unittests (C++) | **6159/6163 (99.9%)** | 4 failures: 2 logging crashes, 2 WeakMaps/WeakSets shrink checks |
+| mjsunit (JavaScript) | **7785/8150 (95.5%)** | 365 failures from flag conflicts, platform/TZ differences, unsupported experimental paths, and memory/timeouts |
 | hello_v8.exe (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly |
 
-Windows results above were collected on April 9, 2026 (MSVC 19.50, Release).
+### Windows x86 / ia32 (MSVC 19.44)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5698/5702 (99.9%)** | 4 failures: 2 logging crashes, 2 WeakMaps/WeakSets shrink checks |
+| mjsunit (JavaScript) | **7171/8150 (88.0%)** | 979 failures: Maglev flag conflicts (no ia32 backend), element-kind differences without pointer compression, optimization assertions |
+| d8 (smoke) | **PASS** | `console.log('hello from ia32 d8')` |
+
+Windows results above were collected on April 13, 2026 (VS 2022, MSVC 19.44, Release).
 
 ### Linux (GCC 13.3.0)
 
@@ -42,7 +50,7 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 
 ## Supported Platforms
 
-- **Windows** — MSVC 2019+ (tested with VS 2025 / MSVC 19.50)
+- **Windows** — MSVC 2019+ (tested with VS 2022 / MSVC 19.44; x64 and x86)
 - **Linux** — GCC 13+, Clang 16+ (tested with GCC 13.3.0)
 - **FreeBSD** — Clang 16+ (tested with FreeBSD 15.0, clang 19.1.7)
 
@@ -62,7 +70,7 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 
 ## Quick Start
 
-### Windows (MSVC)
+### Windows x64 (MSVC)
 
 ```bash
 git clone git@github.com:polycpp/v8.git && cd v8
@@ -71,6 +79,26 @@ cd v8-src && git apply ../patches/001-msvc-compatibility.patch && cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+### Windows x86 / ia32 (MSVC)
+
+Use `vcvarsamd64_x86.bat` (cross-compile) or `vcvars32.bat` (native) to set up
+the x86 compiler, then force `CMAKE_SIZEOF_VOID_P=4`:
+
+```bash
+python fetch_deps.py
+cd v8-src
+git apply ../patches/001-msvc-compatibility.patch
+git apply ../patches/003-msvc-using-enum-fix.patch
+git apply ../patches/004-ia32-support.patch
+cd ..
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ^
+  -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_SIZEOF_VOID_P=4
+cmake --build build
+```
+
+The ia32 build automatically disables pointer compression, sandbox, and the
+Maglev backend (no ia32 Maglev in V8). Sparkplug and TurboFan work normally.
 
 ### Linux (GCC / Clang)
 
@@ -112,7 +140,7 @@ python3 test/run_mjsunit.py build/d8 --timeout 30
 ```
 CMakeLists.txt                  # Root CMake project
 cmake/
-  sources.cmake                 # V8 source file lists (x64, platform-aware)
+  sources.cmake                 # V8 source file lists (x64/ia32, platform-aware)
   targets.cmake                 # Library targets + d8 shell
   torque.cmake                  # Torque compiler + code generation
   snapshot.cmake                # Snapshot generation (mksnapshot)
@@ -123,6 +151,8 @@ cmake/
   generate_icu_data.py          # Converts icudtl.dat to COFF .obj
 patches/
   001-msvc-compatibility.patch  # MSVC source compatibility fixes (~830 lines)
+  003-msvc-using-enum-fix.patch # MSVC C2868 workaround for using-enum
+  004-ia32-support.patch        # ia32 MASM push_registers + turbolev stub
 test/
   run_mjsunit.py                # mjsunit JavaScript test runner
   run_unittests.py              # one-test-per-process unittest runner
@@ -150,7 +180,7 @@ fetch_deps.py                   # Fetches V8 source + third-party deps
 
 **Executables:**
 - **d8** — V8 developer shell (JS REPL, test runner)
-- **v8_unittests** — C++ unit test binary (5968 tests)
+- **v8_unittests** — C++ unit test binary (6163 tests x64, 5702 tests ia32)
 - **hello_v8** — Minimal V8 embedding smoke test
 
 **Build tools** (built automatically during the build):
@@ -164,10 +194,10 @@ fetch_deps.py                   # Fetches V8 source + third-party deps
 |--------|---------|-------------|
 | `V8_ENABLE_I18N` | ON | Internationalization support (ICU) |
 | `V8_ENABLE_WEBASSEMBLY` | ON | WebAssembly support |
-| `V8_ENABLE_MAGLEV` | ON | Maglev mid-tier compiler |
+| `V8_ENABLE_MAGLEV` | ON | Maglev mid-tier compiler (auto-OFF on ia32) |
 | `V8_ENABLE_SPARKPLUG` | ON | Sparkplug baseline compiler |
 | `V8_ENABLE_TURBOFAN` | ON | TurboFan optimizing compiler |
-| `V8_ENABLE_POINTER_COMPRESSION` | ON | Pointer compression (reduces memory) |
+| `V8_ENABLE_POINTER_COMPRESSION` | ON | Pointer compression (auto-OFF on ia32) |
 | `V8_ENABLE_SANDBOX` | OFF | V8 sandbox |
 | `V8_ENABLE_ETW` | ON | ETW stack walking (Windows) |
 | `V8_ENABLE_SNAPSHOT` | ON | Build with startup snapshot |
@@ -310,8 +340,8 @@ On Windows, use `.exe` suffixes (`build/v8_unittests.exe`, `build/d8.exe`, etc.)
 
 ## MSVC Patches
 
-The `patches/001-msvc-compatibility.patch` (~830 lines) fixes ~20 categories
-of MSVC incompatibilities:
+**001-msvc-compatibility.patch** (~830 lines) fixes ~20 categories of MSVC
+incompatibilities:
 
 - GCC `__attribute__((packed))` → `#pragma pack`
 - GCC `__attribute__((visibility))` → removed for static builds
@@ -321,6 +351,14 @@ of MSVC incompatibilities:
 - Template metaprogramming patterns (regexp bytecodes, Turboshaft reducers)
 - MSVC `initializer_list` materialization differences (test fixes)
 - `__FUNCSIG__` format differences vs GCC `__PRETTY_FUNCTION__`
+
+**003-msvc-using-enum-fix.patch** removes `using enum Operand;` from
+`RegExpBytecodeOperands` (MSVC C2868: `using enum` from dependent base class
+template is not supported).
+
+**004-ia32-support.patch** adds two files needed for ia32:
+- `src/heap/base/asm/ia32/push_registers_masm.asm` — cppgc stack scanning
+- `src/compiler/turboshaft/turbolev-stub-ia32.cc` — TurboLev stub (no Maglev ia32 backend)
 
 ## Dependencies
 
@@ -341,9 +379,17 @@ the upstream V8 `14.3.127.18` DEPS file:
 
 ## Architecture
 
-This project targets **x64 only**. Source lists and architecture-specific files
-are configured for x64. Supporting arm64 or ia32 would require adding the
-corresponding source files in `cmake/sources.cmake`.
+This project supports **x64** and **ia32 (x86)** builds. Architecture detection
+is automatic via `CMAKE_SIZEOF_VOID_P`. For cross-compilation to ia32 from an
+x64 host, pass `-DCMAKE_SIZEOF_VOID_P=4`.
+
+**ia32 differences:** pointer compression, caged heap, sandbox, and Maglev are
+automatically disabled. TurboLev (Turboshaft+Maglev integration) is replaced
+with a stub. The `using enum` MSVC C2868 workaround (patch 003) is needed for
+both architectures.
+
+Supporting arm64 would require adding the corresponding source files in
+`cmake/sources.cmake`.
 
 ## License
 
