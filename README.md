@@ -43,8 +43,8 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 ## Supported Platforms
 
 - **Windows** — MSVC 2019+ (tested with VS 2025 / MSVC 19.50)
-- **Linux** — GCC 10+, Clang 12+ (tested with GCC 13.3.0)
-- **FreeBSD** — Clang 12+ (tested with FreeBSD 15.0, clang 19.1.7)
+- **Linux** — GCC 13+, Clang 16+ (tested with GCC 13.3.0)
+- **FreeBSD** — Clang 16+ (tested with FreeBSD 15.0, clang 19.1.7)
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 - Visual Studio with C++ workload (MSVC 19.x)
 
 **Linux / FreeBSD:**
-- GCC 10+ or Clang 12+ (FreeBSD base clang is sufficient)
+- GCC 13+ or Clang 16+ (FreeBSD base clang is sufficient)
 
 **All platforms:**
 - CMake 3.20+
