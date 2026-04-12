@@ -66,6 +66,18 @@ list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "member-unittest")  # needs CPPGC
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "fuzztest")
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "fuzzer")
 
+# Exclude tests with zone alignment issues (alignof(CreationObserver) > kAlignmentInBytes)
+# Not FreeBSD-specific — reproduces on Linux with clang too (V8 upstream bug).
+list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "sloppy-equality-unittest")
+
+# Exclude trap-handler-native test on FreeBSD: TryHandleWebAssemblyTrapPosix
+# is guarded by V8_OS_LINUX || V8_OS_DARWIN in api.cc:6276, so the symbol
+# doesn't exist on FreeBSD. V8 upstream issue — FreeBSD is POSIX and should
+# have this handler.
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "trap-handler-native-unittest")
+endif()
+
 # Exclude tests needing sources not in our build
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "linear-scheduler-unittest")  # needs revec sources
 list(FILTER V8_UNITTEST_CC_FILES EXCLUDE REGEX "revec-unittest")             # needs revec sources

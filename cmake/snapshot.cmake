@@ -13,6 +13,8 @@
 
 if(WIN32)
   set(V8_TARGET_OS_FLAG "win")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  set(V8_TARGET_OS_FLAG "freebsd")
 else()
   set(V8_TARGET_OS_FLAG "linux")
 endif()

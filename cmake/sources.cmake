@@ -65,8 +65,16 @@ else()
     "${V8_ROOT}/src/base/debug/stack_trace_posix.cc"
     "${V8_ROOT}/src/base/platform/platform-posix.cc"
     "${V8_ROOT}/src/base/platform/platform-posix-time.cc"
-    "${V8_ROOT}/src/base/platform/platform-linux.cc"
   )
+  if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    list(APPEND V8_LIBBASE_SOURCES
+      "${V8_ROOT}/src/base/platform/platform-freebsd.cc"
+    )
+  else()
+    list(APPEND V8_LIBBASE_SOURCES
+      "${V8_ROOT}/src/base/platform/platform-linux.cc"
+    )
+  endif()
 endif()
 
 # =============================================================================

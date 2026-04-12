@@ -1,7 +1,8 @@
-# V8 MSVC Build
+# V8 CMake Build
 
-CMake build system for building the V8 JavaScript engine with MSVC on Windows,
-without requiring Google's depot_tools or GN toolchain.
+CMake build system for building the V8 JavaScript engine on Windows (MSVC),
+Linux (GCC/Clang), and FreeBSD (Clang), without requiring Google's depot_tools
+or GN toolchain.
 
 Targets **V8 14.3.127.18**.
 
@@ -25,13 +26,35 @@ Windows results above were collected on April 9, 2026 (MSVC 19.50, Release).
 | mjsunit (JavaScript) | **6757/8150 (82.9%)** | Most failures from flag conflicts and missing test helpers |
 | hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
 
+### FreeBSD (Clang 19.1.7)
+
+| Suite | Result | Notes |
+|-------|--------|-------|
+| v8_unittests (C++) | **5960/5965 (99.9%)** | 5 failures: 2 logging crashes, 2 WeakMaps/WeakSets shrink checks, 1 VirtualAddressSpace reservation |
+| mjsunit (JavaScript) | **7783/8150 (95.5%)** | ~99% excluding sandbox/flag-conflict tests; 9 timezone tests are the only FreeBSD-specific candidates |
+| hello_v8 (smoke) | **PASS** | Arithmetic, JSON, closures, Map, WebAssembly, Intl |
+
+FreeBSD results above were collected on April 12, 2026 (FreeBSD 15.0-RELEASE, clang 19.1.7, Release).
+
 See [docs/test-results.md](docs/test-results.md) for full results,
 [docs/unittest-analysis.md](docs/unittest-analysis.md) and
 [docs/mjsunit-analysis.md](docs/mjsunit-analysis.md) for failure analysis.
 
+## Supported Platforms
+
+- **Windows** — MSVC 2019+ (tested with VS 2025 / MSVC 19.50)
+- **Linux** — GCC 10+, Clang 12+ (tested with GCC 13.3.0)
+- **FreeBSD** — Clang 12+ (tested with FreeBSD 15.0, clang 19.1.7)
+
 ## Prerequisites
 
-- Visual Studio with C++ workload (MSVC 19.x — tested with VS 2025 / MSVC 19.50)
+**Windows:**
+- Visual Studio with C++ workload (MSVC 19.x)
+
+**Linux / FreeBSD:**
+- GCC 10+ or Clang 12+ (FreeBSD base clang is sufficient)
+
+**All platforms:**
 - CMake 3.20+
 - Ninja
 - Python 3
@@ -39,30 +62,49 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 
 ## Quick Start
 
+### Windows (MSVC)
+
 ```bash
-# 1. Clone this repo
-git clone git@github.com:polycpp/v8.git v8-msvc
-cd v8-msvc
-
-# 2. Fetch V8 source and dependencies
+git clone git@github.com:polycpp/v8.git && cd v8
 python fetch_deps.py
-
-# 3. Apply MSVC patches
 cd v8-src && git apply ../patches/001-msvc-compatibility.patch && cd ..
-
-# 4. Configure (from VS Developer Command Prompt)
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-
-# Or from plain shell using the toolchain file:
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/msvc-toolchain.cmake
-
-# 5. Build everything (libraries + d8 + tests)
 cmake --build build
+```
 
-# 6. Run tests
-./build/v8_unittests.exe --gtest_filter="BitsTest*"
-cd v8-src && ../build/d8.exe --test test/mjsunit/mjsunit.js test/mjsunit/array-length.js
+### Linux (GCC / Clang)
+
+```bash
+git clone git@github.com:polycpp/v8.git && cd v8
+python3 fetch_deps.py
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+cmake --build build
+```
+
+### FreeBSD (Clang)
+
+```bash
+git clone git@github.com:polycpp/v8.git && cd v8
+python3 fetch_deps.py
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+cmake --build build
+```
+
+No patches are needed on Linux or FreeBSD — only the Windows MSVC patch applies.
+
+### Run tests
+
+```bash
+# C++ unit tests (each test in a separate process)
+python3 test/run_unittests.py build/v8_unittests --summary
+
+# JavaScript tests (full mjsunit tree)
+python3 test/run_mjsunit.py build/d8 --timeout 30
+
+# Smoke test
+./build/hello_v8
 ```
 
 ## Project Structure
@@ -70,7 +112,7 @@ cd v8-src && ../build/d8.exe --test test/mjsunit/mjsunit.js test/mjsunit/array-l
 ```
 CMakeLists.txt                  # Root CMake project
 cmake/
-  sources.cmake                 # V8 source file lists (Windows x64)
+  sources.cmake                 # V8 source file lists (x64, platform-aware)
   targets.cmake                 # Library targets + d8 shell
   torque.cmake                  # Torque compiler + code generation
   snapshot.cmake                # Snapshot generation (mksnapshot)
@@ -253,16 +295,18 @@ ICU data is embedded directly into the binary — no runtime `icudtl.dat` file n
 
 ```bash
 # C++ unit tests
-python test/run_unittests.py build/v8_unittests.exe --summary
-python test/run_unittests.py build/v8_unittests.exe --filter "BitsTest"
+python3 test/run_unittests.py build/v8_unittests --summary
+python3 test/run_unittests.py build/v8_unittests --filter "BitsTest"
 
 # JavaScript tests (full mjsunit tree)
-python test/run_mjsunit.py build/d8.exe --jobs 12 --timeout 30
-python test/run_mjsunit.py build/d8.exe --filter "wasm/" --jobs 12
+python3 test/run_mjsunit.py build/d8 --jobs 4 --timeout 30
+python3 test/run_mjsunit.py build/d8 --filter "wasm/" --jobs 4
 
 # Smoke test
-./build/hello_v8.exe
+./build/hello_v8
 ```
+
+On Windows, use `.exe` suffixes (`build/v8_unittests.exe`, `build/d8.exe`, etc.).
 
 ## MSVC Patches
 

@@ -85,12 +85,12 @@ add_compile_definitions(
   CPPGC_CAGED_HEAP
   CPPGC_YOUNG_GENERATION
   V8_ENABLE_CONTINUATION_PRESERVED_EMBEDDER_DATA
-  V8_HAVE_TARGET_OS
 )
 
 # Platform-specific definitions
 if(WIN32)
   add_compile_definitions(
+    V8_HAVE_TARGET_OS
     WIN32 _WIN32 NOMINMAX
     _CRT_RAND_S
     _WIN32_WINNT=0x0A00
@@ -101,10 +101,17 @@ if(WIN32)
     V8_ENABLE_SYSTEM_INSTRUMENTATION
     V8_TARGET_OS_WIN
   )
-else()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_compile_definitions(
+    V8_HAVE_TARGET_OS
     V8_TARGET_OS_LINUX
   )
+else()
+  # FreeBSD / other POSIX host: leave V8_HAVE_TARGET_OS / V8_TARGET_OS_* unset
+  # so v8config.h falls back to host-OS detection (__FreeBSD__ -> V8_OS_FREEBSD).
+  # See v8config.h:202 — the fallback branch requires V8_HAVE_TARGET_OS to be
+  # unset. Defining V8_TARGET_OS_LINUX here would force Linux-only code paths
+  # (memfd_create in wasm-objects.cc, d8.cc) and break the build.
 endif()
 
 if(V8_ENABLE_POINTER_COMPRESSION)
