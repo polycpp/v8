@@ -349,7 +349,7 @@ index 65daaf34..a7c2c0e8 100644
  UNIQUE_INSTANCE_TYPE_MAP_LIST_GENERATOR(INSTANCE_TYPE_MAP, _)
  #undef INSTANCE_TYPE_MAP
 diff --git a/src/regexp/regexp-bytecodes-inl.h b/src/regexp/regexp-bytecodes-inl.h
-index 3a8d5848..1bc8719c 100644
+index 3a8d5848..3c03ac3b 100644
 --- a/src/regexp/regexp-bytecodes-inl.h
 +++ b/src/regexp/regexp-bytecodes-inl.h
 @@ -130,18 +130,26 @@ class RegExpBytecodeOperandsBase {
@@ -416,6 +416,15 @@ index 3a8d5848..1bc8719c 100644
    // Similar to above, but calls |f| only for operands of a given type.
    template <RegExpBytecodeOperandType OpType, typename Func>
    static constexpr void ForEachOperandOfType(Func&& f) {
+@@ -259,8 +280,6 @@ class RegExpBytecodeOperandsBase {
+       : public detail::RegExpBytecodeOperandsBase<PACK_OPTIONAL(   \
+             RegExpBytecode::k##CamelName, UNPAREN(OpTypes))>,      \
+         public AllStatic {                                         \
+-   public:                                                         \
+-    using enum Operand;                                            \
+   };
+ 
+ REGEXP_BYTECODE_LIST(DECLARE_OPERANDS)
 diff --git a/src/regexp/regexp-code-generator.cc b/src/regexp/regexp-code-generator.cc
 index 91286280..63683623 100644
 --- a/src/regexp/regexp-code-generator.cc

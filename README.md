@@ -70,28 +70,24 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 
 ## Quick Start
 
-### Windows x64 (MSVC)
+### Windows (MSVC)
 
 ```bash
 git clone git@github.com:polycpp/v8.git && cd v8
 python fetch_deps.py
-cd v8-src && git apply ../patches/001-msvc-compatibility.patch && cd ..
+cd v8-src && git apply ../patches/*.patch && cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-### Windows x86 / ia32 (MSVC)
+All patches are architecture-neutral and should always be applied together.
+Patch 004 adds ia32-only source files that are ignored on x64 builds.
 
-Use `vcvarsamd64_x86.bat` (cross-compile) or `vcvars32.bat` (native) to set up
-the x86 compiler, then force `CMAKE_SIZEOF_VOID_P=4`:
+**For x86 / ia32 builds:** use `vcvarsamd64_x86.bat` (cross-compile) or
+`vcvars32.bat` (native) to set up the x86 compiler, then add
+`-DCMAKE_SIZEOF_VOID_P=4`:
 
 ```bash
-python fetch_deps.py
-cd v8-src
-git apply ../patches/001-msvc-compatibility.patch
-git apply ../patches/003-msvc-using-enum-fix.patch
-git apply ../patches/004-ia32-support.patch
-cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_SIZEOF_VOID_P=4
 cmake --build build
@@ -120,7 +116,7 @@ cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-No patches are needed on Linux or FreeBSD — only the Windows MSVC patch applies.
+No patches are needed on Linux or FreeBSD — only the Windows MSVC patches apply.
 
 ### Run tests
 
@@ -150,8 +146,7 @@ cmake/
   msvc-toolchain.cmake          # Auto-detect MSVC and Windows SDK
   generate_icu_data.py          # Converts icudtl.dat to COFF .obj
 patches/
-  001-msvc-compatibility.patch  # MSVC source compatibility fixes (~830 lines)
-  003-msvc-using-enum-fix.patch # MSVC C2868 workaround for using-enum
+  001-msvc-compatibility.patch  # MSVC source compatibility fixes (~840 lines)
   004-ia32-support.patch        # ia32 MASM push_registers + turbolev stub
 test/
   run_mjsunit.py                # mjsunit JavaScript test runner
@@ -340,7 +335,7 @@ On Windows, use `.exe` suffixes (`build/v8_unittests.exe`, `build/d8.exe`, etc.)
 
 ## MSVC Patches
 
-**001-msvc-compatibility.patch** (~830 lines) fixes ~20 categories of MSVC
+**001-msvc-compatibility.patch** (~840 lines) fixes ~20 categories of MSVC
 incompatibilities:
 
 - GCC `__attribute__((packed))` → `#pragma pack`
@@ -349,16 +344,16 @@ incompatibilities:
 - Qualified base class method calls MSVC rejects
 - `constexpr` + `inline` patterns MSVC handles differently
 - Template metaprogramming patterns (regexp bytecodes, Turboshaft reducers)
+- MSVC `using enum` from dependent base class (C2868 workaround)
 - MSVC `initializer_list` materialization differences (test fixes)
 - `__FUNCSIG__` format differences vs GCC `__PRETTY_FUNCTION__`
 
-**003-msvc-using-enum-fix.patch** removes `using enum Operand;` from
-`RegExpBytecodeOperands` (MSVC C2868: `using enum` from dependent base class
-template is not supported).
-
-**004-ia32-support.patch** adds two files needed for ia32:
+**004-ia32-support.patch** adds two files needed for ia32 builds:
 - `src/heap/base/asm/ia32/push_registers_masm.asm` — cppgc stack scanning
 - `src/compiler/turboshaft/turbolev-stub-ia32.cc` — TurboLev stub (no Maglev ia32 backend)
+
+Both patches are architecture-neutral and should always be applied together.
+Patch 004 adds ia32-only source files that are simply ignored on x64 builds.
 
 ## Dependencies
 
