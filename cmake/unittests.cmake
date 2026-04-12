@@ -192,8 +192,10 @@ endif()
 
 target_compile_definitions(v8_unittests PRIVATE
   V8_ENABLE_WEBASSEMBLY
-  V8_ENABLE_MAGLEV
 )
+if(V8_ENABLE_MAGLEV)
+  target_compile_definitions(v8_unittests PRIVATE V8_ENABLE_MAGLEV)
+endif()
 
 if(MSVC)
   target_compile_options(v8_unittests PRIVATE /bigobj /wd4244 /wd4267 /wd4309)
