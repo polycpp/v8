@@ -94,9 +94,10 @@ cmake --build build
 The ia32 build automatically disables pointer compression, sandbox, and the
 Maglev backend (no ia32 Maglev in V8). Sparkplug and TurboFan work normally.
 
-> **Patches are applied automatically** during CMake configure on Windows.
-> The build system detects which patches are already applied and skips them.
-> No manual `git apply` step is needed.
+> **Patches are applied automatically** by `fetch_deps.py` on Windows.
+> It detects which patches are already applied and skips them.
+> No manual `git apply` step is needed. On Linux/FreeBSD, patches are skipped
+> (they are MSVC-specific).
 
 ### Linux (GCC / Clang)
 
@@ -118,8 +119,8 @@ cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-No patches are needed on Linux or FreeBSD — the MSVC patches are Windows-only
-and are applied automatically during CMake configure.
+No patches are needed on Linux or FreeBSD — `fetch_deps.py` detects the
+platform and skips MSVC-specific patches automatically.
 
 ### Run tests
 
@@ -158,7 +159,7 @@ docs/
   test-results.md               # Test results summary
   unittest-analysis.md          # C++ test failure root causes
   mjsunit-analysis.md           # JS test failure root causes
-fetch_deps.py                   # Fetches V8 source + third-party deps
+fetch_deps.py                   # Fetches V8 source + deps, auto-applies patches on Windows
 ```
 
 ## Build Targets

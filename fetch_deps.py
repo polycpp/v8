@@ -2,11 +2,14 @@
 """Fetch pinned V8 14.3.127.18 source and third-party dependencies.
 
 This script enforces exact revisions from the V8 14.3.127.18 DEPS file,
-including when repositories already exist locally.
+including when repositories already exist locally. On Windows, MSVC
+compatibility patches are applied automatically after fetching.
 """
 
 import argparse
+import glob
 import os
+import platform
 import subprocess
 import sys
 
@@ -126,6 +129,46 @@ def ensure_dep(v8_path, dep_name, dep_info):
     ensure_commit(dep_path, commit)
 
 
+def is_patch_applied(v8_path, patch_path):
+    """Check if a patch is already applied (reverse-apply dry run)."""
+    result = subprocess.call(
+        ["git", "apply", "--reverse", "--check", patch_path],
+        cwd=v8_path,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result == 0
+
+
+def apply_patches(v8_path, patches_dir):
+    """Apply MSVC patches to V8 source. Idempotent — skips already-applied."""
+    if platform.system() != "Windows":
+        print("\n=== Skipping patches (not Windows) ===")
+        return
+
+    patches = sorted(glob.glob(os.path.join(patches_dir, "*.patch")))
+    if not patches:
+        print("\n=== No patches found ===")
+        return
+
+    print(f"\n=== Applying {len(patches)} patch(es) ===")
+    for patch_path in patches:
+        name = os.path.basename(patch_path)
+        if is_patch_applied(v8_path, patch_path):
+            print(f"  {name}: already applied")
+            continue
+
+        result = subprocess.call(
+            ["git", "apply", patch_path],
+            cwd=v8_path,
+        )
+        if result == 0:
+            print(f"  {name}: applied")
+        else:
+            print(f"  {name}: FAILED (may need manual resolution)",
+                  file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch V8 dependencies")
     parser.add_argument("--v8-version", default=V8_VERSION, help="V8 version tag")
@@ -153,7 +196,12 @@ def main():
     print("\n=== All dependencies fetched successfully ===")
     print(f"V8 source is at: {v8_path}")
     print(f"V8 HEAD: {head} (expected tag {args.v8_version})")
-    print("You can now configure with CMake:")
+
+    # Apply MSVC patches on Windows
+    patches_dir = os.path.join(script_dir, "patches")
+    apply_patches(v8_path, patches_dir)
+
+    print("\nYou can now configure with CMake:")
     print("  cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release")
     print("  cmake --build build")
 
