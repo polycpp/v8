@@ -21,6 +21,39 @@ if(NOT EXISTS "${V8_ROOT}/src")
 endif()
 
 # =============================================================================
+# Auto-apply patches (idempotent — skips already-applied patches)
+# =============================================================================
+if(WIN32)
+  file(GLOB _v8_patches "${CMAKE_CURRENT_SOURCE_DIR}/patches/*.patch")
+  list(SORT _v8_patches)
+  foreach(_patch ${_v8_patches})
+    get_filename_component(_patch_name "${_patch}" NAME)
+    # Check if patch is already applied by doing a dry-run reverse apply.
+    # If reverse succeeds, the patch is already applied; skip it.
+    execute_process(
+      COMMAND git apply --reverse --check "${_patch}"
+      WORKING_DIRECTORY "${V8_ROOT}"
+      RESULT_VARIABLE _patch_already_applied
+      OUTPUT_QUIET ERROR_QUIET
+    )
+    if(_patch_already_applied EQUAL 0)
+      message(STATUS "Patch ${_patch_name}: already applied")
+    else()
+      execute_process(
+        COMMAND git apply "${_patch}"
+        WORKING_DIRECTORY "${V8_ROOT}"
+        RESULT_VARIABLE _patch_result
+      )
+      if(_patch_result EQUAL 0)
+        message(STATUS "Patch ${_patch_name}: applied")
+      else()
+        message(WARNING "Patch ${_patch_name}: failed to apply (may need manual resolution)")
+      endif()
+    endif()
+  endforeach()
+endif()
+
+# =============================================================================
 # Build options
 # =============================================================================
 option(V8_ENABLE_I18N "Enable internationalization support (ICU)" ON)

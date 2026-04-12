@@ -70,24 +70,22 @@ See [docs/test-results.md](docs/test-results.md) for full results,
 
 ## Quick Start
 
-### Windows (MSVC)
+### Windows x64 (MSVC)
 
 ```bash
 git clone git@github.com:polycpp/v8.git && cd v8
 python fetch_deps.py
-cd v8-src && git apply ../patches/*.patch && cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-All patches are architecture-neutral and should always be applied together.
-Patch 004 adds ia32-only source files that are ignored on x64 builds.
+### Windows x86 / ia32 (MSVC)
 
-**For x86 / ia32 builds:** use `vcvarsamd64_x86.bat` (cross-compile) or
-`vcvars32.bat` (native) to set up the x86 compiler, then add
-`-DCMAKE_SIZEOF_VOID_P=4`:
+Use `vcvarsamd64_x86.bat` (cross-compile) or `vcvars32.bat` (native) to set up
+the x86 compiler, then add `-DCMAKE_SIZEOF_VOID_P=4`:
 
 ```bash
+python fetch_deps.py
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_SIZEOF_VOID_P=4
 cmake --build build
@@ -95,6 +93,10 @@ cmake --build build
 
 The ia32 build automatically disables pointer compression, sandbox, and the
 Maglev backend (no ia32 Maglev in V8). Sparkplug and TurboFan work normally.
+
+> **Patches are applied automatically** during CMake configure on Windows.
+> The build system detects which patches are already applied and skips them.
+> No manual `git apply` step is needed.
 
 ### Linux (GCC / Clang)
 
@@ -116,7 +118,8 @@ cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 cmake --build build
 ```
 
-No patches are needed on Linux or FreeBSD — only the Windows MSVC patches apply.
+No patches are needed on Linux or FreeBSD — the MSVC patches are Windows-only
+and are applied automatically during CMake configure.
 
 ### Run tests
 
