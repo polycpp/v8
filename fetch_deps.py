@@ -80,6 +80,28 @@ def is_git_repo(path):
     return os.path.isdir(os.path.join(path, ".git"))
 
 
+def get_head_commit(repo_path):
+    """Return the full SHA of HEAD, or None."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_path, text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def get_tag_commit(repo_path, tag):
+    """Return the full SHA that a tag points to, or None."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", f"{tag}^{{commit}}"],
+            cwd=repo_path, text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
 def ensure_commit(repo_path, commit):
     has_commit = subprocess.call(
         ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
@@ -98,6 +120,13 @@ def ensure_v8_checkout(v8_path, v8_version):
             raise RuntimeError(
                 f"{v8_path} exists but is not a git repo. Remove it or pass --v8-dir."
             )
+        # Check if already at the pinned version
+        tag_sha = get_tag_commit(v8_path, v8_version)
+        head_sha = get_head_commit(v8_path)
+        if tag_sha and head_sha and tag_sha == head_sha:
+            print(f"  V8 already at {v8_version} ({head_sha[:8]})")
+            return
+
         print(f"  Existing V8 checkout found: {v8_path}")
         run(
             ["git", "fetch", "--depth=1", "origin", f"refs/tags/{v8_version}"],
@@ -122,6 +151,10 @@ def ensure_dep(v8_path, dep_name, dep_info):
             raise RuntimeError(
                 f"{dep_path} exists but is not a git repo. Remove it and retry."
             )
+        head_sha = get_head_commit(dep_path)
+        if head_sha and head_sha == commit:
+            print(f"  Already at {commit[:8]}")
+            return
         ensure_commit(dep_path, commit)
         return
 
